@@ -5,7 +5,7 @@ set -euo pipefail
 export B2_ACCOUNT_ID="{{ vault.restic.b2_account_id }}"
 export B2_ACCOUNT_KEY="{{ vault.restic.b2_account_key }}"
 export RESTIC_PASSWORD="{{ vault.restic.password }}"
-export RESTIC_REPOSITORY="b2:{{ storage.restic_b2_bucket }}:/{{ restic_node_name }}"
+export RESTIC_REPOSITORY="b2:{{ storage.restic_b2_bucket }}:{{ restic_node_name }}"
 
 # Dump Postgres databases before snapshot
 {% for dump in restic_postgres_dumps %}
