@@ -1,0 +1,12 @@
+[Unit]
+Description=Node status display ({{ display.type }})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/bin/node-display
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

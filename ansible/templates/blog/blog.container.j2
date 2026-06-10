@@ -1,0 +1,16 @@
+[Unit]
+Description=Blog (nginx)
+After=network-online.target local-fs.target
+
+[Container]
+Image=docker.io/library/nginx:alpine
+ContainerName=blog
+Volume={{ storage.data_dir }}/blog/public:/usr/share/nginx/html:ro
+Volume={{ storage.data_dir }}/blog/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+PublishPort=8090:80
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

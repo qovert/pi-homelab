@@ -1,0 +1,17 @@
+[Unit]
+Description=Kavita
+After=network-online.target local-fs.target
+
+[Container]
+Image=docker.io/jvmilazz0/kavita:latest
+ContainerName=kavita
+Volume={{ storage.data_dir }}/kavita/library:/manga
+Volume={{ storage.data_dir }}/kavita/config:/kavita/config
+PublishPort=5000:5000
+Environment=TZ=UTC
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+# Managed by Ansible — do not edit manually
+
+ingress:
+  # Identity portal — must stay ungated (it powers the Access gate itself)
+  - hostname: {{ services.authelia.fqdn }}
+    service: http://{{ inventory_hosts.pi_04 }}:9091
+
+  - hostname: {{ services.nextcloud.fqdn }}
+    service: http://{{ inventory_hosts.pi_02 }}:80
+
+  - hostname: {{ services.rocketchat.fqdn }}
+    service: http://{{ inventory_hosts.pi_01 }}:3000
+
+  - hostname: {{ services.miniflux.fqdn }}
+    service: http://{{ inventory_hosts.pi_02 }}:8081
+
+  - hostname: {{ services.kavita.fqdn }}
+    service: http://{{ inventory_hosts.pi_03 }}:5000
+
+  - hostname: {{ services.uptime_kuma.fqdn }}
+    service: http://{{ inventory_hosts.pi_03 }}:3001
+
+  - hostname: {{ services.blog.fqdn }}
+    service: http://{{ inventory_hosts.pi_03 }}:8090
+
+  # Catch-all — must be last
+  - service: http_status:404

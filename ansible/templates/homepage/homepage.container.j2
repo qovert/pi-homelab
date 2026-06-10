@@ -1,0 +1,15 @@
+[Unit]
+Description=Homepage
+After=network-online.target local-fs.target
+
+[Container]
+Image=ghcr.io/gethomepage/homepage:latest
+ContainerName=homepage
+Volume={{ storage.data_dir }}/homepage:/app/config
+PublishPort=3000:3000
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

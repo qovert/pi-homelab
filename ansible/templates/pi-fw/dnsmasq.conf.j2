@@ -1,0 +1,39 @@
+# Managed by Ansible — do not edit manually
+
+interface={{ pi_fw_lan_iface }}
+bind-interfaces
+domain-needed
+bogus-priv
+no-resolv
+
+# Upstream DNS
+server=1.1.1.1
+server=1.0.0.1
+
+# Local domain — never forward .lab queries upstream
+local=/lab/
+domain=lab
+no-hosts
+
+# DHCP
+dhcp-range={{ networking.dhcp_range_start }},{{ networking.dhcp_range_end }},24h
+dhcp-option=option:router,{{ networking.gateway }}
+dhcp-option=option:dns-server,{{ networking.gateway }}
+
+# DHCP reservations
+{% for host in groups['pi_nodes'] | sort %}
+{% if hostvars[host].dhcp_mac is defined %}
+dhcp-host={{ hostvars[host].dhcp_mac }},{{ hostvars[host].ansible_host }},{{ host }},infinite
+{% endif %}
+{% endfor %}
+
+# Static DNS entries
+address=/pi-fw.lab/{{ inventory_hosts.pi_fw }}
+address=/pi-01.lab/{{ inventory_hosts.pi_01 }}
+address=/pi-nas.lab/{{ inventory_hosts.pi_nas }}
+address=/pi-02.lab/{{ inventory_hosts.pi_02 }}
+address=/pi-03.lab/{{ inventory_hosts.pi_03 }}
+address=/pi-04.lab/{{ inventory_hosts.pi_04 }}
+address=/pi4-01.lab/{{ inventory_hosts.pi4_01 }}
+address=/pi4-02.lab/{{ inventory_hosts.pi4_02 }}
+address=/mikrotik-sw.lab/{{ networking.mikrotik_mgmt_ip }}

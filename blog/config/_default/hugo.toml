@@ -1,0 +1,14 @@
+baseURL = "https://bitrot.me"
+defaultContentLanguage = "en"
+enableRobotsTXT = true
+theme = "PaperMod"
+summarylength = 0
+
+[pagination]
+pagerSize = 10
+
+[build]
+  writeStats = true
+
+[outputs]
+  home = ["HTML", "RSS", "JSON"]

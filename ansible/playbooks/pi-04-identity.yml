@@ -1,0 +1,118 @@
+---
+- name: Deploy identity services on pi-04 (LLDAP + Authelia)
+  hosts: control
+  become: true
+
+  handlers:
+    - name: restart lldap
+      ansible.builtin.systemd:
+        name: lldap.service
+        state: restarted
+        daemon_reload: true
+
+    - name: restart authelia
+      ansible.builtin.systemd:
+        name: authelia.service
+        state: restarted
+        daemon_reload: true
+
+  tasks:
+    - name: Deploy identity network unit
+      ansible.builtin.template:
+        src: ../templates/identity/identity-net.network.j2
+        dest: /etc/containers/systemd/identity-net.network
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - restart lldap
+        - restart authelia
+
+    # LLDAP's entrypoint drops to UID 1000 — its data dir must be owned to match
+    # or it cannot open its SQLite DB (code 14). Re-asserting root here would
+    # silently break LLDAP on every redeploy.
+    - name: Create LLDAP data directories (lldap runs as UID 1000)
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/{{ item }}"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: "0750"
+      loop:
+        - lldap
+        - lldap/backups
+
+    # Authelia runs as root.
+    - name: Create Authelia data directories
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+      loop:
+        - authelia
+        - authelia/backups
+
+    # --- LLDAP ---
+    - name: Deploy LLDAP env file
+      ansible.builtin.template:
+        src: ../templates/lldap/lldap.env.j2
+        dest: /opt/lldap/lldap.env
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      notify: restart lldap
+
+    - name: Deploy LLDAP container unit
+      ansible.builtin.template:
+        src: ../templates/lldap/lldap.container.j2
+        dest: /etc/containers/systemd/lldap.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart lldap
+
+    - name: Enable and start LLDAP
+      ansible.builtin.systemd:
+        name: lldap.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # --- Authelia ---
+    - name: Deploy Authelia configuration
+      ansible.builtin.template:
+        src: ../templates/authelia/configuration.yml.j2
+        dest: /opt/authelia/configuration.yml
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart authelia
+
+    - name: Deploy Authelia env file
+      ansible.builtin.template:
+        src: ../templates/authelia/authelia.env.j2
+        dest: /opt/authelia/authelia.env
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      notify: restart authelia
+
+    - name: Deploy Authelia container unit
+      ansible.builtin.template:
+        src: ../templates/authelia/authelia.container.j2
+        dest: /etc/containers/systemd/authelia.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart authelia
+
+    - name: Enable and start Authelia
+      ansible.builtin.systemd:
+        name: authelia.service
+        state: started
+        enabled: true
+        daemon_reload: true

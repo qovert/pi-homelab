@@ -1,0 +1,175 @@
+---
+- name: Deploy data services on pi-02
+  hosts: data
+  become: true
+
+  handlers:
+    - name: restart nextcloud
+      ansible.builtin.systemd:
+        name: nextcloud.service
+        state: restarted
+        daemon_reload: true
+
+    - name: restart miniflux
+      ansible.builtin.systemd:
+        name: miniflux.service
+        state: restarted
+        daemon_reload: true
+
+    - name: restart syncthing
+      ansible.builtin.systemd:
+        name: syncthing.service
+        state: restarted
+        daemon_reload: true
+
+  tasks:
+    # --- Nextcloud ---
+    - name: Deploy Nextcloud network unit
+      ansible.builtin.template:
+        src: ../templates/nextcloud/nextcloud-net.network.j2
+        dest: /etc/containers/systemd/nextcloud-net.network
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart nextcloud
+
+    - name: Deploy nextcloud-db container unit
+      ansible.builtin.template:
+        src: ../templates/nextcloud/nextcloud-db.container.j2
+        dest: /etc/containers/systemd/nextcloud-db.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart nextcloud
+
+    - name: Deploy nextcloud-redis container unit
+      ansible.builtin.template:
+        src: ../templates/nextcloud/nextcloud-redis.container.j2
+        dest: /etc/containers/systemd/nextcloud-redis.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart nextcloud
+
+    - name: Deploy nextcloud container unit
+      ansible.builtin.template:
+        src: ../templates/nextcloud/nextcloud.container.j2
+        dest: /etc/containers/systemd/nextcloud.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart nextcloud
+
+    - name: Deploy Nextcloud env file
+      ansible.builtin.template:
+        src: ../templates/nextcloud/nextcloud.env.j2
+        dest: /opt/nextcloud/nextcloud.env
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0600"
+      no_log: true
+      notify: restart nextcloud
+
+    - name: Create Nextcloud html directory (www-data, UID 33)
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/nextcloud/html"
+        state: directory
+        owner: "33"
+        group: "33"
+        mode: "0750"
+
+    # postgres:16-alpine runs as UID 70 — must match or the DB cannot
+    # read its own data files after a redeploy re-asserts ownership.
+    - name: Create Nextcloud postgres directory (postgres-alpine, UID 70)
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/nextcloud/postgres"
+        state: directory
+        owner: "70"
+        group: "70"
+        mode: "0750"
+
+    - name: Enable and start Nextcloud
+      ansible.builtin.systemd:
+        name: nextcloud.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # --- Miniflux ---
+    - name: Deploy Miniflux network unit
+      ansible.builtin.template:
+        src: ../templates/miniflux/miniflux-net.network.j2
+        dest: /etc/containers/systemd/miniflux-net.network
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart miniflux
+
+    - name: Deploy miniflux-db container unit
+      ansible.builtin.template:
+        src: ../templates/miniflux/miniflux-db.container.j2
+        dest: /etc/containers/systemd/miniflux-db.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart miniflux
+
+    - name: Deploy miniflux container unit
+      ansible.builtin.template:
+        src: ../templates/miniflux/miniflux.container.j2
+        dest: /etc/containers/systemd/miniflux.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart miniflux
+
+    - name: Deploy Miniflux env file
+      ansible.builtin.template:
+        src: ../templates/miniflux/miniflux.env.j2
+        dest: /opt/miniflux/miniflux.env
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0600"
+      no_log: true
+      notify: restart miniflux
+
+    # postgres:16-alpine runs as UID 70 (not 999) — must match.
+    - name: Create Miniflux postgres directory (postgres-alpine, UID 70)
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/miniflux/postgres"
+        state: directory
+        owner: "70"
+        group: "70"
+        mode: "0750"
+
+    - name: Enable and start Miniflux
+      ansible.builtin.systemd:
+        name: miniflux.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # --- Syncthing ---
+    - name: Deploy Syncthing container unit
+      ansible.builtin.template:
+        src: ../templates/syncthing/syncthing.container.j2
+        dest: /etc/containers/systemd/syncthing.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart syncthing
+
+    - name: Create Syncthing data directory
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/syncthing"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: "0750"
+
+    - name: Enable and start Syncthing
+      ansible.builtin.systemd:
+        name: syncthing.service
+        state: started
+        enabled: true
+        daemon_reload: true

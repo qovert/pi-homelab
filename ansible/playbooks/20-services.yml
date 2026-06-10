@@ -1,0 +1,6 @@
+---
+- import_playbook: pi-nas.yml
+- import_playbook: pi-01-comms.yml
+- import_playbook: pi-02-data.yml
+- import_playbook: pi-03-utility.yml
+- import_playbook: pi-04-identity.yml

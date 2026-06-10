@@ -1,0 +1,64 @@
+#!/usr/sbin/nft -f
+# Managed by Ansible — do not edit manually
+
+flush ruleset
+
+define WAN = {{ pi_fw_wan_iface }}
+define LAN = {{ pi_fw_lan_iface }}
+define LAB  = {{ networking.lab_cidr }}
+
+table inet filter {
+  chain input {
+    type filter hook input priority 0; policy drop;
+
+    iif lo accept
+    ct state established,related accept
+    ct state invalid drop
+
+    # Accept all from lab
+    iifname $LAN accept
+
+    # ICMP
+    ip  protocol icmp       accept
+    ip6 nexthdr  icmpv6     accept
+
+    # SSH — LAN and Tailscale only (never from WAN), key-auth only
+    iifname { $LAN, "tailscale0" } tcp dport 22 accept
+
+    # Tailscale control/data plane
+    udp dport 41641 accept
+
+    # Log (rate-limited) and drop everything else
+    limit rate 5/second burst 10 packets log prefix "nft-drop-input: " flags all
+    drop
+  }
+
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+
+    ct state established,related accept
+    ct state invalid drop
+
+    # Lab → WAN
+    iifname $LAN oifname $WAN accept
+
+    # Tailscale subnet routing: remote clients ↔ lab
+    iifname "tailscale0" oifname $LAN accept
+    iifname $LAN oifname "tailscale0" accept
+
+    limit rate 5/second burst 10 packets log prefix "nft-drop-forward: " flags all
+    drop
+  }
+
+  chain output {
+    type filter hook output priority 0; policy accept;
+  }
+}
+
+table inet nat {
+  chain postrouting {
+    type nat hook postrouting priority 100; policy accept;
+
+    iifname $LAN oifname $WAN masquerade
+  }
+}

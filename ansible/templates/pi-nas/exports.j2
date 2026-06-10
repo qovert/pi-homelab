@@ -1,0 +1,4 @@
+# /etc/exports — Managed by Ansible, do not edit manually
+{{ storage.data_dir }}/nfs/pi-03    {{ inventory_hosts.pi_03 }}(rw,sync,no_subtree_check,no_root_squash)
+{{ storage.data_dir }}/nfs/pi4-01   {{ inventory_hosts.pi4_01 }}(rw,sync,no_subtree_check,no_root_squash)
+{{ storage.data_dir }}/nfs/pi4-02   {{ inventory_hosts.pi4_02 }}(rw,sync,no_subtree_check,no_root_squash)

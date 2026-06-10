@@ -1,0 +1,39 @@
+vault:
+  cloudflare:
+    tunnel_token: CHANGE_ME_CF_TUNNEL_TOKEN
+    tunnel_id: CHANGE_ME_CF_TUNNEL_ID
+  rocketchat:
+    admin_user: admin
+    admin_password: CHANGE_ME_RC_ADMIN_PASSWORD
+  lldap:
+    admin_password: CHANGE_ME_LLDAP_ADMIN_PASSWORD
+    jwt_secret: CHANGE_ME_LLDAP_JWT_SECRET            # openssl rand -hex 32
+    key_seed: CHANGE_ME_LLDAP_KEY_SEED                # openssl rand -hex 32
+  authelia:
+    session_secret: CHANGE_ME_AUTHELIA_SESSION        # openssl rand -hex 32
+    storage_encryption_key: CHANGE_ME_AUTHELIA_STORAGE  # openssl rand -hex 32
+    jwt_secret: CHANGE_ME_AUTHELIA_JWT                 # openssl rand -hex 32
+  smtp:
+    relay_user: CHANGE_ME_SMTP_USER       # submission account, e.g. noreply@yourdomain
+    relay_password: CHANGE_ME_SMTP_PASSWORD
+  nextcloud:
+    admin_user: admin
+    admin_password: CHANGE_ME_NC_ADMIN_PASSWORD
+    db_password: CHANGE_ME_NC_DB_PASSWORD
+  miniflux:
+    admin_user: admin
+    admin_password: CHANGE_ME_MF_ADMIN_PASSWORD
+    db_password: CHANGE_ME_MF_DB_PASSWORD
+  kavita:
+    jwt_token: CHANGE_ME_KAVITA_JWT_TOKEN_MIN_32_CHARS
+  homelabbot:
+    anthropic_api_key: CHANGE_ME_ANTHROPIC_API_KEY
+    rocketchat_token: CHANGE_ME_ROCKETCHAT_BOT_TOKEN
+    ssh_private_key: CHANGE_ME_HOMELABBOT_SSH_PRIVATE_KEY
+    ssh_public_key: CHANGE_ME_HOMELABBOT_SSH_PUBLIC_KEY
+  restic:
+    b2_account_id: CHANGE_ME_RESTIC_B2_ACCOUNT_ID
+    b2_account_key: CHANGE_ME_RESTIC_B2_ACCOUNT_KEY
+    password: CHANGE_ME_RESTIC_PASSWORD
+  mikrotik:
+    password: CHANGE_ME_MIKROTIK_ADMIN_PASSWORD

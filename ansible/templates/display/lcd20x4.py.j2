@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+# Managed by Ansible — do not edit manually
+import shutil
+import socket
+import time
+import psutil
+from RPLCD.i2c import CharLCD
+
+
+def get_ip():
+    for iface, addrs in psutil.net_if_addrs().items():
+        if iface == 'lo':
+            continue
+        for addr in addrs:
+            if addr.family == socket.AF_INET:
+                return addr.address
+    return 'no IP'
+
+
+lcd = CharLCD('PCF8574', {{ display.i2c_address }}, port={{ display.i2c_bus }},
+              cols=20, rows=4, auto_linebreaks=False)
+
+while True:
+    hostname = socket.gethostname()
+    ip = get_ip()
+    cpu = psutil.cpu_percent(interval=1)
+    mem = psutil.virtual_memory().percent
+    try:
+        disk = shutil.disk_usage('/data')
+        disk_pct = disk.used / disk.total * 100
+        disk_str = f'DSK: {disk_pct:4.1f}%'
+    except OSError:
+        disk_str = 'DSK: N/A'
+
+    lcd.clear()
+    lcd.write_string(hostname[:20].ljust(20))
+    lcd.cursor_pos = (1, 0)
+    lcd.write_string(ip[:20].ljust(20))
+    lcd.cursor_pos = (2, 0)
+    lcd.write_string(f'CPU:{cpu:4.1f}% MEM:{mem:4.1f}%'[:20].ljust(20))
+    lcd.cursor_pos = (3, 0)
+    lcd.write_string(disk_str[:20].ljust(20))
+
+    time.sleep(5)

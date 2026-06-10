@@ -1,0 +1,22 @@
+[Unit]
+Description=Miniflux Postgres
+After=network-online.target local-fs.target
+
+[Container]
+Image=docker.io/library/postgres:16-alpine
+ContainerName=miniflux-db
+HostName=postgres
+EnvironmentFile=/opt/miniflux/miniflux.env
+Volume={{ storage.data_dir }}/miniflux/postgres:/var/lib/postgresql/data
+Network=miniflux-net.network
+HealthCmd=pg_isready -U miniflux -d miniflux
+HealthInterval=10s
+HealthRetries=5
+HealthStartPeriod=20s
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

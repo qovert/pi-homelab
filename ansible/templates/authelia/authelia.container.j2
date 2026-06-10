@@ -1,0 +1,20 @@
+[Unit]
+Description=Authelia authentication portal
+After=network-online.target local-fs.target lldap.service
+Requires=lldap.service
+
+[Container]
+Image=ghcr.io/authelia/authelia:latest
+ContainerName=authelia
+EnvironmentFile=/opt/authelia/authelia.env
+Volume=/opt/authelia/configuration.yml:/config/configuration.yml:ro,Z
+Volume={{ storage.data_dir }}/authelia:/data
+Network=identity-net.network
+PublishPort=9091:9091
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

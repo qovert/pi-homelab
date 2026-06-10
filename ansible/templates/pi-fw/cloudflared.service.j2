@@ -1,0 +1,17 @@
+[Unit]
+Description=cloudflared tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+TimeoutStartSec=0
+Type=notify
+ExecStart=/usr/bin/cloudflared tunnel \
+  --config /etc/cloudflared/config.yml \
+  --no-autoupdate \
+  run --token {{ vault.cloudflare.tunnel_token }}
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

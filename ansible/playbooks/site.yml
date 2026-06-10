@@ -1,0 +1,4 @@
+---
+- import_playbook: 00-bootstrap.yml
+- import_playbook: 10-foundation.yml
+- import_playbook: 20-services.yml

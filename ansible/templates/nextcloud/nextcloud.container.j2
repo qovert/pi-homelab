@@ -1,0 +1,19 @@
+[Unit]
+Description=Nextcloud
+After=network-online.target local-fs.target nextcloud-db.service nextcloud-redis.service
+Requires=nextcloud-db.service nextcloud-redis.service
+
+[Container]
+Image=docker.io/library/nextcloud:apache
+ContainerName=nextcloud
+EnvironmentFile=/opt/nextcloud/nextcloud.env
+Volume={{ storage.data_dir }}/nextcloud/html:/var/www/html
+PublishPort=80:80
+Network=nextcloud-net.network
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

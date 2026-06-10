@@ -1,0 +1,21 @@
+#!/bin/bash
+# Managed by Ansible — do not edit manually
+set -euo pipefail
+
+REPO_DIR=/opt/blog/source
+OUTPUT_DIR={{ storage.data_dir }}/blog/public
+
+cd "$REPO_DIR"
+
+git fetch origin main --quiet
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse origin/main)
+
+if [ "$LOCAL" = "$REMOTE" ]; then
+    exit 0
+fi
+
+git pull --ff-only origin main --quiet
+git submodule update --init --recursive --quiet
+hugo --minify --source "$REPO_DIR" --destination "$OUTPUT_DIR"
+echo "[blog-build] built $(git rev-parse --short HEAD) at $(date -Iseconds)"

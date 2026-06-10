@@ -1,0 +1,45 @@
+#!/bin/bash
+# Managed by Ansible — do not edit manually
+set -euo pipefail
+
+export B2_ACCOUNT_ID="{{ vault.restic.b2_account_id }}"
+export B2_ACCOUNT_KEY="{{ vault.restic.b2_account_key }}"
+export RESTIC_PASSWORD="{{ vault.restic.password }}"
+export RESTIC_REPOSITORY="b2:{{ storage.restic_b2_bucket }}:/{{ restic_node_name }}"
+
+# Dump Postgres databases before snapshot
+{% for dump in restic_postgres_dumps %}
+mkdir -p "$(dirname {{ dump.dump_path }})"
+{% if dump.container is defined %}
+podman exec {{ dump.container }} \
+  pg_dump -U {{ dump.db_user }} {{ dump.db_name }} \
+  > {{ dump.dump_path }}
+{% else %}
+sudo -u postgres pg_dump {{ dump.db_name }} > {{ dump.dump_path }}
+{% endif %}
+{% endfor %}
+
+# Dump MongoDB databases before snapshot
+{% for dump in restic_mongo_dumps | default([]) %}
+podman exec {{ dump.container }} mongodump --out {{ dump.dump_path }}
+{% endfor %}
+
+# Consistent SQLite snapshots before backup (online .backup, not a raw copy)
+{% for dump in restic_sqlite_dumps | default([]) %}
+mkdir -p "$(dirname {{ dump.out }})"
+sqlite3 {{ dump.db }} ".backup '{{ dump.out }}'"
+{% endfor %}
+
+# Initialize repo if first run
+restic snapshots &>/dev/null || restic init
+
+restic backup \
+  --verbose \
+  --tag {{ restic_node_name }} \
+  {{ storage.data_dir }}/
+
+restic forget \
+  --keep-daily 7 \
+  --keep-weekly 4 \
+  --keep-monthly 3 \
+  --prune

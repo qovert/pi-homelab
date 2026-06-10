@@ -1,0 +1,18 @@
+[Unit]
+Description=MongoDB for Rocket.Chat
+After=network-online.target local-fs.target
+
+[Container]
+Image=docker.io/library/mongo:7.0
+ContainerName=rocketchat-mongo
+Volume={{ storage.data_dir }}/rocketchat/mongodb:/data/db
+Volume={{ storage.data_dir }}/rocketchat/mongo-init:/docker-entrypoint-initdb.d:ro
+Network=rocketchat-net.network
+Exec=mongod --replSet rs0 --bind_ip_all
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

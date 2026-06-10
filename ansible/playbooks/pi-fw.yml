@@ -1,0 +1,152 @@
+---
+- name: Configure pi-fw (router, firewall, tunnel)
+  hosts: fw
+  become: true
+
+  pre_tasks:
+    - name: Verify interface names are set
+      ansible.builtin.assert:
+        that:
+          - pi_fw_wan_iface is not search('CHANGE_ME')
+          - pi_fw_lan_iface is not search('CHANGE_ME')
+        fail_msg: Set pi_fw_wan_iface and pi_fw_lan_iface in host_vars/pi-fw.yml before running this playbook.
+
+    - name: Verify Cloudflare tunnel token is set
+      ansible.builtin.assert:
+        that:
+          - vault.cloudflare.tunnel_token is not search('CHANGE_ME')
+        fail_msg: Fill vault.cloudflare.tunnel_token in vault.yml before running this playbook.
+
+  tasks:
+    - name: Configure LAN interface with static IP
+      community.general.nmcli:
+        conn_name: "{{ pi_fw_lan_iface }}-lan"
+        ifname: "{{ pi_fw_lan_iface }}"
+        type: ethernet
+        ip4: "{{ networking.gateway }}/24"
+        method4: manual
+        method6: disabled
+        autoconnect: true
+        state: present
+      notify: nmcli up lan
+
+    - name: Enable IP forwarding
+      ansible.posix.sysctl:
+        name: "{{ item }}"
+        value: "1"
+        state: present
+        sysctl_set: true
+        reload: true
+      loop:
+        - net.ipv4.ip_forward
+        - net.ipv6.conf.all.forwarding
+
+    - name: Install nftables and dnsmasq
+      ansible.builtin.apt:
+        name:
+          - nftables
+          - dnsmasq
+        state: present
+        update_cache: true
+
+    - name: Deploy nftables ruleset
+      ansible.builtin.template:
+        src: ../templates/pi-fw/nftables.conf.j2
+        dest: /etc/nftables.conf
+        owner: root
+        group: root
+        mode: "0640"
+      notify: reload nftables
+
+    - name: Enable and start nftables
+      ansible.builtin.systemd:
+        name: nftables
+        state: started
+        enabled: true
+
+    - name: Deploy dnsmasq config
+      ansible.builtin.template:
+        src: ../templates/pi-fw/dnsmasq.conf.j2
+        dest: /etc/dnsmasq.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart dnsmasq
+
+    - name: Enable and start dnsmasq
+      ansible.builtin.systemd:
+        name: dnsmasq
+        state: started
+        enabled: true
+
+    - name: Install Tailscale
+      ansible.builtin.shell: |
+        curl -fsSL https://tailscale.com/install.sh | sh
+      args:
+        creates: /usr/bin/tailscale
+
+    - name: Enable Tailscale service
+      ansible.builtin.systemd:
+        name: tailscaled
+        state: started
+        enabled: true
+
+    - name: Install cloudflared
+      ansible.builtin.apt:
+        deb: https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+        state: present
+
+    - name: Create cloudflared config directory
+      ansible.builtin.file:
+        path: /etc/cloudflared
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Deploy cloudflared config
+      ansible.builtin.template:
+        src: ../templates/pi-fw/cloudflared-config.yml.j2
+        dest: /etc/cloudflared/config.yml
+        owner: root
+        group: root
+        mode: "0640"
+      notify: restart cloudflared
+
+    - name: Deploy cloudflared systemd service
+      ansible.builtin.template:
+        src: ../templates/pi-fw/cloudflared.service.j2
+        dest: /etc/systemd/system/cloudflared.service
+        owner: root
+        group: root
+        mode: "0644"
+      no_log: true
+      notify: restart cloudflared
+
+    - name: Enable and start cloudflared
+      ansible.builtin.systemd:
+        name: cloudflared
+        state: started
+        enabled: true
+        daemon_reload: true
+
+  handlers:
+    - name: nmcli up lan
+      ansible.builtin.command:
+        cmd: nmcli connection up {{ pi_fw_lan_iface }}-lan
+      changed_when: true
+
+    - name: reload nftables
+      ansible.builtin.systemd:
+        name: nftables
+        state: reloaded
+
+    - name: restart dnsmasq
+      ansible.builtin.systemd:
+        name: dnsmasq
+        state: restarted
+
+    - name: restart cloudflared
+      ansible.builtin.systemd:
+        name: cloudflared
+        state: restarted

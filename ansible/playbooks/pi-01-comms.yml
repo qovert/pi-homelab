@@ -1,0 +1,130 @@
+---
+- name: Deploy comms services on pi-01
+  hosts: comms
+  become: true
+
+  handlers:
+    - name: restart rocketchat
+      ansible.builtin.systemd:
+        name: rocketchat.service
+        state: restarted
+        daemon_reload: true
+
+    - name: restart homelabbot
+      ansible.builtin.systemd:
+        name: homelabbot.service
+        state: restarted
+        daemon_reload: true
+
+  tasks:
+    # --- Rocket.Chat + MongoDB ---
+    - name: Remove old native Mattermost service if present
+      ansible.builtin.systemd:
+        name: mattermost.service
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove old Mattermost service file
+      ansible.builtin.file:
+        path: /etc/systemd/system/mattermost.service
+        state: absent
+
+    - name: Create Rocket.Chat data directories
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/rocketchat/{{ item }}"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0750"
+      loop:
+        - mongodb
+        - mongo-init
+        - backups
+
+    - name: Deploy MongoDB replica set init script
+      ansible.builtin.copy:
+        dest: "{{ storage.data_dir }}/rocketchat/mongo-init/replica-set-init.js"
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0644"
+        content: |
+          rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'rocketchat-mongo:27017' }] });
+
+    - name: Deploy Rocket.Chat network unit
+      ansible.builtin.template:
+        src: ../templates/rocketchat/rocketchat-net.network.j2
+        dest: /etc/containers/systemd/rocketchat-net.network
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart rocketchat
+
+    - name: Deploy MongoDB container unit
+      ansible.builtin.template:
+        src: ../templates/rocketchat/mongo.container.j2
+        dest: /etc/containers/systemd/rocketchat-mongo.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart rocketchat
+
+    - name: Create /opt/rocketchat directory
+      ansible.builtin.file:
+        path: /opt/rocketchat
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0750"
+
+    - name: Deploy Rocket.Chat environment file
+      ansible.builtin.template:
+        src: ../templates/rocketchat/rocketchat.env.j2
+        dest: /opt/rocketchat/rocketchat.env
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0600"
+      no_log: true
+      notify: restart rocketchat
+
+    - name: Deploy Rocket.Chat container unit
+      ansible.builtin.template:
+        src: ../templates/rocketchat/rocketchat.container.j2
+        dest: /etc/containers/systemd/rocketchat.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart rocketchat
+
+    - name: Enable and start Rocket.Chat
+      ansible.builtin.systemd:
+        name: rocketchat.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # --- HomelabBot ---
+    - name: Deploy HomelabBot container unit
+      ansible.builtin.template:
+        src: ../templates/homelabbot/homelabbot.container.j2
+        dest: /etc/containers/systemd/homelabbot.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart homelabbot
+
+    - name: Deploy HomelabBot env file
+      ansible.builtin.template:
+        src: ../templates/homelabbot/env.j2
+        dest: /opt/homelabbot/.env
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0600"
+      no_log: true
+      notify: restart homelabbot
+
+    - name: Enable HomelabBot (image must be built locally before it will start)
+      ansible.builtin.systemd:
+        name: homelabbot.service
+        enabled: true
+        daemon_reload: true

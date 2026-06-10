@@ -1,0 +1,62 @@
+lab:
+  domain: CHANGE_ME_DOMAIN              # e.g. bitrot.me
+  admin_email: CHANGE_ME_ADMIN_EMAIL    # e.g. admin@bitrot.me
+  ssh_public_key: CHANGE_ME_SSH_PUBLIC_KEY
+
+ansible_access:
+  admin_user: admin
+  admin_port: 22
+  bootstrap_user: pi
+  bootstrap_port: 22
+
+inventory_hosts:
+  pi_fw:  10.42.0.1
+  pi_01:  10.42.0.11
+  pi_02:  10.42.0.12
+  pi_03:  10.42.0.13
+  pi_04:  10.42.0.14
+
+networking:
+  lab_cidr: 10.42.0.0/24
+  gateway: 10.42.0.1
+  dhcp_range_start: 10.42.0.100
+  dhcp_range_end: 10.42.0.200
+
+storage:
+  data_dir: /data
+  restic_b2_bucket: pi-homelab           # single B2 bucket; repos are path-prefixed per node
+
+cloudflare:
+  tunnel_name: pi-homelab
+  account_id: CHANGE_ME_CF_ACCOUNT_ID
+
+services:
+  nextcloud:
+    fqdn: cloud.CHANGE_ME_DOMAIN
+  rocketchat:
+    fqdn: chat.CHANGE_ME_DOMAIN
+  # Identity (Authelia OIDC portal + LLDAP directory) on pi-04
+  authelia:
+    fqdn: auth.CHANGE_ME_DOMAIN
+  ldap:
+    base_dn: dc=CHANGE_ME,dc=CHANGE_ME   # e.g. dc=bitrot,dc=me
+  # Outbound SMTP relay for app notifications (authenticated SMTP submission)
+  mail:
+    notifier: smtp                # Authelia notifier: smtp | filesystem (filesystem = no mail dependency)
+    relay_host: CHANGE_ME_SMTP_HOST   # SMTP submission host (e.g. your mail server)
+    relay_port: 465
+    relay_security: ssl           # implicit TLS on 465 (use "starttls" for 587)
+    sender_domain: CHANGE_ME_DOMAIN
+  miniflux:
+    fqdn: rss.CHANGE_ME_DOMAIN
+  kavita:
+    fqdn: books.CHANGE_ME_DOMAIN
+  uptime_kuma:
+    fqdn: status.CHANGE_ME_DOMAIN
+  homelabbot:
+    rocketchat_url: "https://{{ services.rocketchat.fqdn }}"
+    channel_name: general
+  blog:
+    fqdn: CHANGE_ME_DOMAIN          # apex domain, e.g. bitrot.me
+    hugo_version: "0.147.1"
+    git_repo: CHANGE_ME_REPO_URL

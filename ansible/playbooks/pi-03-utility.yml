@@ -1,0 +1,225 @@
+---
+- name: Deploy utility services on pi-03
+  hosts: utility
+  become: true
+
+  handlers:
+    - name: restart kavita
+      ansible.builtin.systemd:
+        name: kavita.service
+        state: restarted
+        daemon_reload: true
+
+    - name: restart uptime-kuma
+      ansible.builtin.systemd:
+        name: uptime-kuma.service
+        state: restarted
+        daemon_reload: true
+
+    - name: restart homepage
+      ansible.builtin.systemd:
+        name: homepage.service
+        state: restarted
+        daemon_reload: true
+
+    - name: restart blog
+      ansible.builtin.systemd:
+        name: blog.service
+        state: restarted
+        daemon_reload: true
+
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+  tasks:
+    # --- Kavita ---
+    - name: Deploy Kavita container unit
+      ansible.builtin.template:
+        src: ../templates/kavita/kavita.container.j2
+        dest: /etc/containers/systemd/kavita.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart kavita
+
+    - name: Create Kavita data directories
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/kavita/{{ item }}"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0750"
+      loop:
+        - library
+        - config
+
+    - name: Enable and start Kavita
+      ansible.builtin.systemd:
+        name: kavita.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # --- Uptime Kuma ---
+    - name: Deploy Uptime Kuma container unit
+      ansible.builtin.template:
+        src: ../templates/uptime-kuma/uptime-kuma.container.j2
+        dest: /etc/containers/systemd/uptime-kuma.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart uptime-kuma
+
+    - name: Create Uptime Kuma data directory
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/uptime-kuma"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0750"
+
+    - name: Enable and start Uptime Kuma
+      ansible.builtin.systemd:
+        name: uptime-kuma.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # --- Homepage ---
+    - name: Deploy Homepage container unit
+      ansible.builtin.template:
+        src: ../templates/homepage/homepage.container.j2
+        dest: /etc/containers/systemd/homepage.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart homepage
+
+    - name: Create Homepage config directory
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/homepage"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0750"
+
+    - name: Deploy Homepage config files
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0644"
+      loop:
+        - src: ../templates/homepage/services.yaml.j2
+          dest: "{{ storage.data_dir }}/homepage/services.yaml"
+        - src: ../templates/homepage/settings.yaml.j2
+          dest: "{{ storage.data_dir }}/homepage/settings.yaml"
+      notify: restart homepage
+
+    - name: Enable and start Homepage
+      ansible.builtin.systemd:
+        name: homepage.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # --- Blog (Hugo + nginx) ---
+    - name: Install Hugo
+      ansible.builtin.get_url:
+        url: "https://github.com/gohugoio/hugo/releases/download/v{{ services.blog.hugo_version }}/hugo_extended_{{ services.blog.hugo_version }}_linux-arm64.tar.gz"
+        dest: /tmp/hugo.tar.gz
+        mode: "0644"
+
+    - name: Extract Hugo binary
+      ansible.builtin.unarchive:
+        src: /tmp/hugo.tar.gz
+        dest: /usr/local/bin
+        include:
+          - hugo
+        remote_src: true
+        mode: "0755"
+
+    - name: Create blog source directory
+      ansible.builtin.file:
+        path: /opt/blog/source
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0755"
+
+    - name: Clone repo for blog builds
+      ansible.builtin.git:
+        repo: "{{ services.blog.git_repo }}"
+        dest: /opt/blog/source
+        version: main
+        update: true
+        recursive: true
+      become_user: "{{ ansible_access.admin_user }}"
+
+    - name: Create blog output directory
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/blog/public"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0755"
+
+    - name: Deploy nginx config
+      ansible.builtin.template:
+        src: ../templates/blog/nginx.conf.j2
+        dest: "{{ storage.data_dir }}/blog/nginx.conf"
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0644"
+      notify: restart blog
+
+    - name: Deploy blog container unit
+      ansible.builtin.template:
+        src: ../templates/blog/blog.container.j2
+        dest: /etc/containers/systemd/blog.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart blog
+
+    - name: Deploy blog build script
+      ansible.builtin.template:
+        src: ../templates/blog/build.sh.j2
+        dest: /usr/local/bin/blog-build
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy blog build systemd units
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - src: ../templates/blog/blog-build.service.j2
+          dest: /etc/systemd/system/blog-build.service
+        - src: ../templates/blog/blog-build.timer.j2
+          dest: /etc/systemd/system/blog-build.timer
+      notify: reload systemd
+
+    - name: Enable blog build timer
+      ansible.builtin.systemd:
+        name: blog-build.timer
+        state: started
+        enabled: true
+
+    - name: Run initial blog build
+      ansible.builtin.command:
+        cmd: hugo --minify --source /opt/blog/source --destination /data/blog/public
+      changed_when: true
+
+    - name: Enable and start blog nginx
+      ansible.builtin.systemd:
+        name: blog.service
+        state: started
+        enabled: true
+        daemon_reload: true

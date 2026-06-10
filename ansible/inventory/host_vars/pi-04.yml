@@ -1,0 +1,21 @@
+ansible_host: "{{ inventory_hosts.pi_04 }}"
+dhcp_mac: "dc:a6:32:c5:71:46"
+
+display:
+  type: ssd1306
+  i2c_bus: 1
+  i2c_address: "0x3C"
+
+restic_node_name: pi-04
+restic_postgres_dumps: []
+restic_sqlite_dumps:
+  - db: "{{ storage.data_dir }}/lldap/users.db"
+    out: "{{ storage.data_dir }}/lldap/backups/users.db"
+  - db: "{{ storage.data_dir }}/authelia/db.sqlite3"
+    out: "{{ storage.data_dir }}/authelia/backups/db.sqlite3"
+
+compose_projects:
+  - name: lldap
+    dir: /opt/lldap
+  - name: authelia
+    dir: /opt/authelia

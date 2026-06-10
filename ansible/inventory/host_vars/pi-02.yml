@@ -1,0 +1,26 @@
+ansible_host: "{{ inventory_hosts.pi_02 }}"
+dhcp_mac: "d8:3a:dd:98:18:79"
+
+display:
+  type: ssd1306
+  i2c_bus: 1
+  i2c_address: "0x3C"
+
+restic_node_name: pi-02
+restic_postgres_dumps:
+  - container: nextcloud-db
+    db_user: nextcloud
+    db_name: nextcloud
+    dump_path: "{{ storage.data_dir }}/nextcloud/backups/nextcloud.sql"
+  - container: miniflux-db
+    db_user: miniflux
+    db_name: miniflux
+    dump_path: "{{ storage.data_dir }}/miniflux/backups/miniflux.sql"
+
+compose_projects:
+  - name: nextcloud
+    dir: /opt/nextcloud
+  - name: miniflux
+    dir: /opt/miniflux
+  - name: syncthing
+    dir: /opt/syncthing

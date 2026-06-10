@@ -1,0 +1,18 @@
+[Unit]
+Description=LLDAP directory
+After=network-online.target local-fs.target
+
+[Container]
+Image=docker.io/lldap/lldap:stable
+ContainerName=lldap
+EnvironmentFile=/opt/lldap/lldap.env
+Volume={{ storage.data_dir }}/lldap:/data
+Network=identity-net.network
+# Web UI — reachable on the pi-04 LAN/Tailscale IP only (no public tunnel).
+PublishPort=17170:17170
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+[Unit]
+Description=Miniflux
+After=network-online.target miniflux-db.service
+Requires=miniflux-db.service
+
+[Container]
+Image=docker.io/miniflux/miniflux:latest
+ContainerName=miniflux
+EnvironmentFile=/opt/miniflux/miniflux.env
+PublishPort=8081:8080
+Network=miniflux-net.network
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

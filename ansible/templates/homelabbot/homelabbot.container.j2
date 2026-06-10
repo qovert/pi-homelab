@@ -1,0 +1,15 @@
+[Unit]
+Description=HomelabBot
+After=network-online.target rocketchat.service
+
+[Container]
+Image=localhost/homelabbot:latest
+ContainerName=homelabbot
+EnvironmentFile=/opt/homelabbot/.env
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

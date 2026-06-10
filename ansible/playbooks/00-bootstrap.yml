@@ -1,0 +1,517 @@
+---
+- name: Bootstrap all Pi nodes
+  hosts: all:!switch
+  become: true
+  gather_facts: false
+  vars:
+    ansible_user: "{{ ansible_access.bootstrap_user }}"
+    ansible_port: "{{ ansible_access.bootstrap_port }}"
+
+  pre_tasks:
+    - name: Verify required inputs are filled
+      ansible.builtin.assert:
+        that:
+          - lab.ssh_public_key is not search('CHANGE_ME')
+          - ansible_access.admin_user | length > 0
+        fail_msg: Fill lab.ssh_public_key and ansible_access.admin_user in user_inputs.yml before bootstrapping.
+
+  tasks:
+    - name: Install sudo
+      ansible.builtin.apt:
+        name: sudo
+        state: present
+        update_cache: true
+
+    - name: Create admin group
+      ansible.builtin.group:
+        name: sudo
+        state: present
+
+    - name: Create admin user
+      ansible.builtin.user:
+        name: "{{ ansible_access.admin_user }}"
+        shell: /bin/bash
+        groups: sudo
+        append: true
+        create_home: true
+        state: present
+
+    - name: Grant passwordless sudo
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/90-{{ ansible_access.admin_user }}"
+        owner: root
+        group: root
+        mode: "0440"
+        content: "{{ ansible_access.admin_user }} ALL=(ALL) NOPASSWD:ALL\n"
+
+    - name: Install SSH key for admin user
+      ansible.posix.authorized_key:
+        user: "{{ ansible_access.admin_user }}"
+        state: present
+        key: "{{ lab.ssh_public_key }}"
+
+    - name: Ensure sshd_config.d exists
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Harden SSH
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/10-hardening.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PubkeyAuthentication yes
+          PermitRootLogin prohibit-password
+      notify: restart ssh
+
+    - name: Disable WiFi
+      ansible.builtin.lineinfile:
+        path: /boot/firmware/config.txt
+        line: dtoverlay=disable-wifi
+        create: false
+      notify: reboot
+
+    - name: Set hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+
+    - name: Fix hostname resolution for sudo
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1'
+        line: "127.0.1.1 {{ inventory_hostname }}"
+
+    - name: Install common packages
+      ansible.builtin.apt:
+        name:
+          - curl
+          - git
+          - vim
+          - htop
+          - ca-certificates
+          - gnupg
+          - apt-transport-https
+          - unattended-upgrades
+        state: present
+        update_cache: false
+
+    - name: Enable automatic security updates
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+          APT::Periodic::AutocleanInterval "7";
+
+  handlers:
+    - name: reboot
+      ansible.builtin.reboot:
+        reboot_timeout: 120
+
+    - name: restart ssh
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted
+
+
+- name: Configure Pi 5 service nodes (NVMe storage + Podman)
+  hosts: comms:data
+  become: true
+
+  tasks:
+    - name: Create /data mount point
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+
+    - name: Install Podman and networking plugins
+      ansible.builtin.apt:
+        name:
+          - podman
+          - containernetworking-plugins
+          - uidmap
+        state: present
+        update_cache: true
+
+    - name: Create quadlets directory
+      ansible.builtin.file:
+        path: /etc/containers/systemd
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create /data service subdirectories
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/{{ item }}/backups"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0750"
+        recurse: true
+      loop: "{{ compose_projects | map(attribute='name') | list }}"
+
+    - name: Create /opt service directories for env files
+      ansible.builtin.file:
+        path: "{{ item.dir }}"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0750"
+      loop: "{{ compose_projects }}"
+
+    - name: Install restic
+      ansible.builtin.apt:
+        name: restic
+        state: present
+        update_cache: false
+
+    - name: Deploy restic backup script
+      ansible.builtin.template:
+        src: ../templates/restic/backup.sh.j2
+        dest: /usr/local/bin/restic-backup
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Deploy restic systemd units
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - src: ../templates/restic/restic-backup.service.j2
+          dest: /etc/systemd/system/restic-backup.service
+        - src: ../templates/restic/restic-backup.timer.j2
+          dest: /etc/systemd/system/restic-backup.timer
+        - src: ../templates/restic/restic-check.service.j2
+          dest: /etc/systemd/system/restic-check.service
+        - src: ../templates/restic/restic-check.timer.j2
+          dest: /etc/systemd/system/restic-check.timer
+      notify: reload systemd
+
+    - name: Enable restic timers
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - restic-backup.timer
+        - restic-check.timer
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+
+- name: Configure utility node (Pi 4 — NFS /data from pi-nas + Podman)
+  hosts: utility
+  become: true
+
+  tasks:
+    - name: Install NFS client and Podman
+      ansible.builtin.apt:
+        name:
+          - nfs-common
+          - podman
+          - containernetworking-plugins
+          - uidmap
+        state: present
+        update_cache: true
+
+    - name: Create /data mount point
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Mount NFS /data from pi-nas
+      ansible.posix.mount:
+        path: "{{ storage.data_dir }}"
+        src: "{{ inventory_hosts.pi_nas }}:{{ storage.data_dir }}/nfs/pi-03"
+        fstype: nfs
+        opts: defaults,noatime,_netdev
+        state: mounted
+
+    - name: Create quadlets directory
+      ansible.builtin.file:
+        path: /etc/containers/systemd
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create /opt service directories for env files
+      ansible.builtin.file:
+        path: "{{ item.dir }}"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0750"
+      loop: "{{ compose_projects }}"
+
+    - name: Install restic
+      ansible.builtin.apt:
+        name: restic
+        state: present
+        update_cache: false
+
+    - name: Deploy restic backup script
+      ansible.builtin.template:
+        src: ../templates/restic/backup.sh.j2
+        dest: /usr/local/bin/restic-backup
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Deploy restic systemd units
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - src: ../templates/restic/restic-backup.service.j2
+          dest: /etc/systemd/system/restic-backup.service
+        - src: ../templates/restic/restic-backup.timer.j2
+          dest: /etc/systemd/system/restic-backup.timer
+        - src: ../templates/restic/restic-check.service.j2
+          dest: /etc/systemd/system/restic-check.service
+        - src: ../templates/restic/restic-check.timer.j2
+          dest: /etc/systemd/system/restic-check.timer
+      notify: reload systemd
+
+    - name: Enable restic timers
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - restic-backup.timer
+        - restic-check.timer
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+
+- name: Configure spare Pi 4 nodes (NFS /data from pi-nas)
+  hosts: pi4_nodes
+  become: true
+
+  tasks:
+    - name: Install NFS client
+      ansible.builtin.apt:
+        name: nfs-common
+        state: present
+        update_cache: true
+
+    - name: Create /data mount point
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Mount NFS /data from pi-nas
+      ansible.posix.mount:
+        path: "{{ storage.data_dir }}"
+        src: "{{ inventory_hosts.pi_nas }}:{{ storage.data_dir }}/nfs/{{ inventory_hostname }}"
+        fstype: nfs
+        opts: defaults,noatime,_netdev
+        state: mounted
+
+
+- name: Configure pi-04 (Ansible control node + identity host)
+  hosts: control
+  become: true
+
+  tasks:
+    - name: Install Ansible, pip, and sshpass
+      ansible.builtin.apt:
+        name:
+          - ansible
+          - python3-pip
+          - sshpass
+        state: present
+        update_cache: false
+
+    - name: Install Tailscale
+      ansible.builtin.shell: |
+        curl -fsSL https://tailscale.com/install.sh | sh
+      args:
+        creates: /usr/bin/tailscale
+
+    - name: Enable Tailscale daemon
+      ansible.builtin.systemd:
+        name: tailscaled
+        state: started
+        enabled: true
+
+    # --- Container runtime + local storage for the identity stack ---
+    # Identity data is kept on local disk (not NFS) so authentication does not
+    # depend on pi-nas being up.
+    - name: Install Podman, networking, restic, and sqlite3
+      ansible.builtin.apt:
+        name:
+          - podman
+          - containernetworking-plugins
+          - uidmap
+          - restic
+          - sqlite3
+        state: present
+        update_cache: true
+
+    - name: Create local /data
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create quadlets directory
+      ansible.builtin.file:
+        path: /etc/containers/systemd
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create /opt service directories for env files
+      ansible.builtin.file:
+        path: "{{ item.dir }}"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0750"
+      loop: "{{ compose_projects }}"
+
+    - name: Deploy restic backup script
+      ansible.builtin.template:
+        src: ../templates/restic/backup.sh.j2
+        dest: /usr/local/bin/restic-backup
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Deploy restic systemd units
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - src: ../templates/restic/restic-backup.service.j2
+          dest: /etc/systemd/system/restic-backup.service
+        - src: ../templates/restic/restic-backup.timer.j2
+          dest: /etc/systemd/system/restic-backup.timer
+        - src: ../templates/restic/restic-check.service.j2
+          dest: /etc/systemd/system/restic-check.service
+        - src: ../templates/restic/restic-check.timer.j2
+          dest: /etc/systemd/system/restic-check.timer
+      notify: reload systemd
+
+    - name: Enable restic timers
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - restic-backup.timer
+        - restic-check.timer
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+
+- name: Configure node display
+  hosts: all:!switch:!fw
+  become: true
+
+  tasks:
+    - name: Skip nodes without a display configured
+      ansible.builtin.meta: end_host
+      when: display is not defined
+
+    - name: Enable I2C in boot config
+      ansible.builtin.lineinfile:
+        path: /boot/firmware/config.txt
+        regexp: '^#?dtparam=i2c_arm'
+        line: dtparam=i2c_arm=on
+      register: _i2c_config
+
+    - name: Enable i2c-dev module on boot
+      ansible.builtin.lineinfile:
+        path: /etc/modules
+        line: i2c-dev
+        create: true
+
+    - name: Reboot to activate I2C
+      ansible.builtin.reboot:
+        reboot_timeout: 120
+      when: _i2c_config.changed
+
+    - name: Install display dependencies
+      ansible.builtin.apt:
+        name:
+          - python3-pip
+          - python3-psutil
+          - python3-pil
+          - i2c-tools
+        state: present
+        update_cache: false
+
+    - name: Install display Python library
+      ansible.builtin.pip:
+        name: "{{ 'luma.oled' if display.type == 'ssd1306' else 'RPLCD[smbus2]' }}"
+        extra_args: --break-system-packages
+        executable: pip3
+
+    - name: Deploy display script
+      ansible.builtin.template:
+        src: "../templates/display/{{ display.type }}.py.j2"
+        dest: /usr/local/bin/node-display
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy display systemd service
+      ansible.builtin.template:
+        src: ../templates/display/display.service.j2
+        dest: /etc/systemd/system/node-display.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable and start display service
+      ansible.builtin.systemd:
+        name: node-display.service
+        state: started
+        enabled: true
+        daemon_reload: true

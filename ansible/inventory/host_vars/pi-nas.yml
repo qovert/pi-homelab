@@ -1,0 +1,15 @@
+ansible_host: "{{ inventory_hosts.pi_nas }}"
+dhcp_mac: "2c:cf:67:cf:e5:d1"
+
+display:
+  type: lcd_20x4
+  i2c_bus: 1
+  i2c_address: "0x27"
+
+# Radxa Penta SATA HAT — 4x SATA SSDs via JMS585 PCIe bridge
+# Drives present as /dev/sda–/dev/sdd (not NVMe).
+# Storage layout TBD pending HAT bring-up.
+restic_node_name: pi-nas
+restic_postgres_dumps: []
+
+compose_projects: []

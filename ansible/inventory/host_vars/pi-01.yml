@@ -1,0 +1,19 @@
+ansible_host: "{{ inventory_hosts.pi_01 }}"
+dhcp_mac: "2c:cf:67:81:ec:5d"
+
+display:
+  type: ssd1306
+  i2c_bus: 1
+  i2c_address: "0x3C"
+
+restic_node_name: pi-01
+restic_postgres_dumps: []
+restic_mongo_dumps:
+  - container: rocketchat-mongo
+    dump_path: /data/db/backups
+
+compose_projects:
+  - name: rocketchat
+    dir: /opt/rocketchat
+  - name: homelabbot
+    dir: /opt/homelabbot

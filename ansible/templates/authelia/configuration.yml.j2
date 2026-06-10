@@ -1,0 +1,61 @@
+# Managed by Ansible — do not edit manually
+# Secrets are supplied via environment variables (see authelia.env).
+
+theme: dark
+
+server:
+  address: tcp://0.0.0.0:9091
+
+log:
+  level: info
+
+totp:
+  issuer: {{ lab.domain }}
+
+authentication_backend:
+  password_reset:
+    disable: false
+  ldap:
+    implementation: lldap
+    address: ldap://lldap:3890
+    base_dn: {{ services.ldap.base_dn }}
+    user: uid=admin,ou=people,{{ services.ldap.base_dn }}
+
+access_control:
+  default_policy: two_factor
+
+session:
+  name: authelia_session
+  expiration: 1h
+  inactivity: 15m
+  remember_me: 1M
+  cookies:
+    - domain: {{ lab.domain }}
+      authelia_url: https://{{ services.authelia.fqdn }}
+      default_redirection_url: https://{{ lab.domain }}
+
+regulation:
+  max_retries: 4
+  find_time: 2m
+  ban_time: 10m
+
+storage:
+  local:
+    path: /data/db.sqlite3
+
+notifier:
+  # The IdP must not fail to boot if mail is unavailable — a mail outage should
+  # never lock you out of every service. Delivery is still attempted at runtime.
+  disable_startup_check: true
+{% if services.mail.notifier | default('smtp') == 'filesystem' %}
+  # Writes notifications (2FA enrollment / password-reset links) to a file
+  # instead of emailing — useful when mail delivery is unavailable.
+  # On host: {{ storage.data_dir }}/authelia/notification.txt
+  filesystem:
+    filename: /data/notification.txt
+{% else %}
+  smtp:
+    address: {{ 'submissions' if services.mail.relay_security | default('starttls') == 'ssl' else 'submission' }}://{{ services.mail.relay_host }}:{{ services.mail.relay_port }}
+    username: {{ vault.smtp.relay_user }}
+    sender: "Authelia <noreply@{{ services.mail.sender_domain }}>"
+{% endif %}

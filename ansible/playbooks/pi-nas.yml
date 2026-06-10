@@ -1,0 +1,74 @@
+---
+- name: Configure pi-nas (btrfs RAID-10 storage + NFS server)
+  hosts: nas
+  become: true
+
+  handlers:
+    - name: reload nfs exports
+      ansible.builtin.command:
+        cmd: exportfs -ra
+      changed_when: true
+
+  tasks:
+    - name: Install btrfs tools and NFS server
+      ansible.builtin.apt:
+        name:
+          - btrfs-progs
+          - nfs-kernel-server
+        state: present
+        update_cache: true
+
+    - name: Create /data mount point
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Check for existing btrfs filesystem on /dev/sda
+      ansible.builtin.command:
+        cmd: blkid -s TYPE -o value /dev/sda
+      register: _sda_fstype
+      failed_when: false
+      changed_when: false
+
+    - name: Create btrfs RAID-10 across 4 SSDs
+      ansible.builtin.command:
+        cmd: mkfs.btrfs -f --sectorsize 16384 -d raid10 -m raid10 -L pi-nas-data /dev/sda /dev/sdb /dev/sdc /dev/sdd
+      when: _sda_fstype.stdout | trim != 'btrfs'
+
+    - name: Mount btrfs at /data
+      ansible.posix.mount:
+        path: "{{ storage.data_dir }}"
+        src: LABEL=pi-nas-data
+        fstype: btrfs
+        opts: defaults,noatime,compress=zstd,space_cache=v2
+        state: mounted
+
+    - name: Create NFS export directories for Pi 4 nodes
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/nfs/{{ item }}"
+        state: directory
+        owner: "{{ ansible_access.admin_user }}"
+        group: "{{ ansible_access.admin_user }}"
+        mode: "0755"
+      loop:
+        - pi-03
+        - pi4-01
+        - pi4-02
+
+    - name: Deploy NFS exports
+      ansible.builtin.template:
+        src: ../templates/pi-nas/exports.j2
+        dest: /etc/exports
+        owner: root
+        group: root
+        mode: "0644"
+      notify: reload nfs exports
+
+    - name: Enable and start NFS server
+      ansible.builtin.systemd:
+        name: nfs-kernel-server
+        state: started
+        enabled: true

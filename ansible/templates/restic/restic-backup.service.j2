@@ -1,0 +1,10 @@
+[Unit]
+Description=Restic backup — {{ restic_node_name }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/restic-backup
+StandardOutput=journal
+StandardError=journal

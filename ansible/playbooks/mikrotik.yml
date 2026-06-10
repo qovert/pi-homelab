@@ -1,0 +1,54 @@
+---
+- name: Configure MikroTik CRS310 switch
+  hosts: switch
+  gather_facts: false
+
+  tasks:
+    - name: Set switch hostname
+      community.routeros.command:
+        commands:
+          - /system identity set name=mikrotik-sw
+
+    - name: Remove default DHCP server
+      community.routeros.command:
+        commands:
+          - /ip dhcp-server remove [find]
+
+    - name: Remove default DHCP address pool
+      community.routeros.command:
+        commands:
+          - /ip pool remove [find]
+
+    - name: Remove default DHCP network config
+      community.routeros.command:
+        commands:
+          - /ip dhcp-server network remove [find]
+
+    - name: Add lab management IP to bridge
+      community.routeros.command:
+        commands:
+          - >-
+            /ip address add
+            address={{ networking.mikrotik_mgmt_ip }}/24
+            interface=bridge
+            comment="lab management"
+
+    - name: Set default route via pi-fw
+      community.routeros.command:
+        commands:
+          - >-
+            /ip route add
+            dst-address=0.0.0.0/0
+            gateway={{ networking.gateway }}
+            comment="via pi-fw"
+
+    - name: Point DNS at pi-fw
+      community.routeros.command:
+        commands:
+          - /ip dns set servers={{ networking.gateway }}
+
+    - name: Remove default 192.168.88.1 address
+      community.routeros.command:
+        commands:
+          - /ip address remove [find where address~"192.168.88"]
+      ignore_errors: true

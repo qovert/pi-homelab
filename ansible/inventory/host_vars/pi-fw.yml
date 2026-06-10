@@ -1,0 +1,10 @@
+ansible_host: "{{ inventory_hosts.pi_fw }}"
+ansible_user: "{{ ansible_access.admin_user }}"
+ansible_port: "{{ ansible_access.admin_port }}"
+ansible_connection: local
+
+# Physical interface names — verify with `ip link` on the device.
+# Pi 5 built-in NIC is typically `end0`.
+# Dual 2.5GbE HAT ports are typically `enp1s0` / `enp2s0` (varies by HAT).
+pi_fw_wan_iface: eth1   # 2.5GbE HAT port 1 — faces upstream router
+pi_fw_lan_iface: eth2   # 2.5GbE HAT port 2 — faces managed switch

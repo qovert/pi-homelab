@@ -1,0 +1,32 @@
+colorScheme = "slate"
+defaultAppearance = "dark"
+autoSwitchAppearance = true
+
+enableSearch = true
+enableCodeCopy = true
+
+[homepage]
+  layout = "profile"
+  showRecent = true
+  showRecentItems = 5
+
+[article]
+  showDate = true
+  showViews = false
+  showLikes = false
+  showAuthor = true
+  showReadingTime = true
+  showTableOfContents = false
+  showBreadcrumbs = false
+  showDraftLabel = true
+  showEdit = false
+  sharingLinks = []
+
+[list]
+  showBreadcrumbs = false
+  showTableOfContents = false
+  showSummary = true
+  groupByYear = true
+
+[sitemap]
+  excludedKinds = []
