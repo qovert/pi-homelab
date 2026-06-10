@@ -26,17 +26,17 @@
         group: root
         mode: "0755"
 
-    - name: Check for existing btrfs filesystem on /dev/sda
+    - name: Check for existing btrfs volume label
       ansible.builtin.command:
-        cmd: blkid -s TYPE -o value /dev/sda
-      register: _sda_fstype
+        cmd: blkid -L pi-nas-data
+      register: _btrfs_label
       failed_when: false
       changed_when: false
 
     - name: Create btrfs RAID-10 across 4 SSDs
       ansible.builtin.command:
         cmd: mkfs.btrfs -f --sectorsize 16384 -d raid10 -m raid10 -L pi-nas-data /dev/sda /dev/sdb /dev/sdc /dev/sdd
-      when: _sda_fstype.stdout | trim != 'btrfs'
+      when: _btrfs_label.rc != 0
 
     - name: Mount btrfs at /data
       ansible.posix.mount:
