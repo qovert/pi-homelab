@@ -180,6 +180,23 @@
         state: present
         update_cache: false
 
+    - name: Create /etc/restic directory
+      ansible.builtin.file:
+        path: /etc/restic
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Deploy restic env file
+      ansible.builtin.template:
+        src: ../templates/restic/restic.env.j2
+        dest: /etc/restic/env
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
     - name: Deploy restic backup script
       ansible.builtin.template:
         src: ../templates/restic/backup.sh.j2
@@ -187,6 +204,7 @@
         owner: root
         group: root
         mode: "0750"
+      no_log: true
 
     - name: Deploy restic systemd units
       ansible.builtin.template:
@@ -275,6 +293,23 @@
         state: present
         update_cache: false
 
+    - name: Create /etc/restic directory
+      ansible.builtin.file:
+        path: /etc/restic
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Deploy restic env file
+      ansible.builtin.template:
+        src: ../templates/restic/restic.env.j2
+        dest: /etc/restic/env
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
     - name: Deploy restic backup script
       ansible.builtin.template:
         src: ../templates/restic/backup.sh.j2
@@ -282,6 +317,7 @@
         owner: root
         group: root
         mode: "0750"
+      no_log: true
 
     - name: Deploy restic systemd units
       ansible.builtin.template:
@@ -409,6 +445,23 @@
         mode: "0750"
       loop: "{{ compose_projects }}"
 
+    - name: Create /etc/restic directory
+      ansible.builtin.file:
+        path: /etc/restic
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Deploy restic env file
+      ansible.builtin.template:
+        src: ../templates/restic/restic.env.j2
+        dest: /etc/restic/env
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
     - name: Deploy restic backup script
       ansible.builtin.template:
         src: ../templates/restic/backup.sh.j2
@@ -416,6 +469,7 @@
         owner: root
         group: root
         mode: "0750"
+      no_log: true
 
     - name: Deploy restic systemd units
       ansible.builtin.template:

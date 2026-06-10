@@ -5,11 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c '\
-  export B2_ACCOUNT_ID="{{ vault.restic.b2_account_id }}"; \
-  export B2_ACCOUNT_KEY="{{ vault.restic.b2_account_key }}"; \
-  export RESTIC_PASSWORD="{{ vault.restic.password }}"; \
-  export RESTIC_REPOSITORY="b2:{{ storage.restic_b2_bucket }}:{{ restic_node_name }}"; \
-  restic check'
+EnvironmentFile=/etc/restic/env
+ExecStart=restic check
 StandardOutput=journal
 StandardError=journal
