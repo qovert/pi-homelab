@@ -6,10 +6,11 @@ Wants=network-online.target
 [Service]
 TimeoutStartSec=0
 Type=notify
+EnvironmentFile=/etc/cloudflared/cloudflared.env
 ExecStart=/usr/bin/cloudflared tunnel \
   --config /etc/cloudflared/config.yml \
   --no-autoupdate \
-  run --token {{ vault.cloudflare.tunnel_token }}
+  run --token ${TUNNEL_TOKEN}
 Restart=on-failure
 RestartSec=5s
 
