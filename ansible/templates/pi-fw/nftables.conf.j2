@@ -15,15 +15,19 @@ table inet filter {
     ct state established,related accept
     ct state invalid drop
 
-    # Accept all from lab
-    iifname $LAN accept
-
     # ICMP
     ip  protocol icmp       accept
     ip6 nexthdr  icmpv6     accept
 
     # SSH — LAN and Tailscale only (never from WAN), key-auth only
     iifname { $LAN, "tailscale0" } tcp dport 22 accept
+
+    # DNS and DHCP (dnsmasq)
+    iifname $LAN udp dport { 53, 67 } accept
+    iifname $LAN tcp dport 53 accept
+
+    # NTP
+    iifname $LAN udp dport 123 accept
 
     # Tailscale control/data plane
     udp dport 41641 accept
