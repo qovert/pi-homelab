@@ -10,17 +10,22 @@ ansible_access:
   bootstrap_port: 22
 
 inventory_hosts:
-  pi_fw:  10.42.0.1
-  pi_01:  10.42.0.11
-  pi_02:  10.42.0.12
-  pi_03:  10.42.0.13
-  pi_04:  10.42.0.14
+  pi_fw:       10.42.0.1
+  pi_01:       10.42.0.11
+  pi_02:       10.42.0.12
+  pi_03:       10.42.0.13
+  pi_04:       10.42.0.14
+  pi_nas:      10.42.0.20
+  pi4_01:      10.42.0.21
+  pi4_02:      10.42.0.22
+  mikrotik_sw: 10.42.0.2
 
 networking:
   lab_cidr: 10.42.0.0/24
   gateway: 10.42.0.1
   dhcp_range_start: 10.42.0.100
   dhcp_range_end: 10.42.0.200
+  mikrotik_mgmt_ip: 10.42.0.2
 
 storage:
   data_dir: /data
