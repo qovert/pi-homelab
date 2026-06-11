@@ -28,12 +28,6 @@ dhcp-host={{ hostvars[host].dhcp_mac }},{{ hostvars[host].ansible_host }},{{ hos
 {% endfor %}
 
 # Static DNS entries
-address=/pi-fw.lab.{{ lab.domain }}/{{ inventory_hosts.pi_fw }}
-address=/pi-01.lab.{{ lab.domain }}/{{ inventory_hosts.pi_01 }}
-address=/pi-nas.lab.{{ lab.domain }}/{{ inventory_hosts.pi_nas }}
-address=/pi-02.lab.{{ lab.domain }}/{{ inventory_hosts.pi_02 }}
-address=/pi-03.lab.{{ lab.domain }}/{{ inventory_hosts.pi_03 }}
-address=/pi-04.lab.{{ lab.domain }}/{{ inventory_hosts.pi_04 }}
-address=/pi4-01.lab.{{ lab.domain }}/{{ inventory_hosts.pi4_01 }}
-address=/pi4-02.lab.{{ lab.domain }}/{{ inventory_hosts.pi4_02 }}
-address=/mikrotik-sw.lab.{{ lab.domain }}/{{ inventory_hosts.mikrotik_sw }}
+{% for name, ip in inventory_hosts.items() %}
+address=/{{ name | replace('_', '-') }}.lab.{{ lab.domain }}/{{ ip }}
+{% endfor %}
