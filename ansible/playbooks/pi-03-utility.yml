@@ -159,8 +159,19 @@
         dest: /opt/blog/source
         version: main
         update: true
-        recursive: true
+        recursive: false
       become_user: "{{ ansible_access.admin_user }}"
+
+    - name: Update blog submodules (force HTTPS to avoid SSH hang)
+      ansible.builtin.command:
+        cmd: git submodule update --init --recursive
+        chdir: /opt/blog/source
+      environment:
+        GIT_CONFIG_COUNT: "1"
+        GIT_CONFIG_KEY_0: "url.https://github.com/.insteadOf"
+        GIT_CONFIG_VALUE_0: "git@github.com:"
+      become_user: "{{ ansible_access.admin_user }}"
+      changed_when: true
 
     - name: Create blog output directory
       ansible.builtin.file:
