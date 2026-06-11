@@ -52,7 +52,7 @@ for n in 11 13 14; do echo "=== 10.42.0.$n ==="; \
 
 ## Backup & restore
 
-Each service node snapshots `/data` to Backblaze B2 (`b2:pi-homelab:/<node>`)
+Each service node snapshots `/data` to Backblaze B2 (`b2:pi-homelab:<node>`)
 via `restic`, driven by the `restic-backup.timer` systemd timer. Database dumps
 run first: `pg_dump` for Postgres services, `mongodump` for Rocket.Chat.
 
@@ -66,19 +66,18 @@ sudo journalctl -u restic-backup -n 30
 
 ### List snapshots
 
-The B2 credentials and repo path are baked into the backup script. Reuse them:
+Credentials live in `/etc/restic/env` (root-only). Load them into the current shell:
 
 ```bash
-# on the node, load the same env the backup script uses
-set -a; source <(sudo grep '^export' /usr/local/bin/restic-backup); set +a
-restic snapshots
+# on the node, as root
+sudo bash -c 'set -a; source /etc/restic/env; restic snapshots'
 ```
 
 ### Restore files
 
 ```bash
-set -a; source <(sudo grep '^export' /usr/local/bin/restic-backup); set +a
-restic restore latest --target /tmp/restore --include /data/nextcloud
+sudo bash -c 'set -a; source /etc/restic/env; \
+  restic restore latest --target /tmp/restore --include /data/nextcloud'
 ```
 
 Restore into a scratch path first, inspect, then move into place. Stop the
