@@ -6,7 +6,7 @@ lab:
 ansible_access:
   admin_user: admin
   admin_port: 22
-  bootstrap_user: pi
+  bootstrap_user: admin
   bootstrap_port: 22
 
 inventory_hosts:
