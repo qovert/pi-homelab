@@ -10,9 +10,9 @@ no-resolv
 server=1.1.1.1
 server=1.0.0.1
 
-# Local domain — never forward .lab queries upstream
-local=/lab/
-domain=lab
+# Local domain — never forward lab.{{ lab.domain }} queries upstream
+local=/lab.{{ lab.domain }}/
+domain=lab.{{ lab.domain }}
 no-hosts
 
 # DHCP
@@ -28,12 +28,12 @@ dhcp-host={{ hostvars[host].dhcp_mac }},{{ hostvars[host].ansible_host }},{{ hos
 {% endfor %}
 
 # Static DNS entries
-address=/pi-fw.lab/{{ inventory_hosts.pi_fw }}
-address=/pi-01.lab/{{ inventory_hosts.pi_01 }}
-address=/pi-nas.lab/{{ inventory_hosts.pi_nas }}
-address=/pi-02.lab/{{ inventory_hosts.pi_02 }}
-address=/pi-03.lab/{{ inventory_hosts.pi_03 }}
-address=/pi-04.lab/{{ inventory_hosts.pi_04 }}
-address=/pi4-01.lab/{{ inventory_hosts.pi4_01 }}
-address=/pi4-02.lab/{{ inventory_hosts.pi4_02 }}
-address=/mikrotik-sw.lab/{{ networking.mikrotik_mgmt_ip }}
+address=/pi-fw.lab.{{ lab.domain }}/{{ inventory_hosts.pi_fw }}
+address=/pi-01.lab.{{ lab.domain }}/{{ inventory_hosts.pi_01 }}
+address=/pi-nas.lab.{{ lab.domain }}/{{ inventory_hosts.pi_nas }}
+address=/pi-02.lab.{{ lab.domain }}/{{ inventory_hosts.pi_02 }}
+address=/pi-03.lab.{{ lab.domain }}/{{ inventory_hosts.pi_03 }}
+address=/pi-04.lab.{{ lab.domain }}/{{ inventory_hosts.pi_04 }}
+address=/pi4-01.lab.{{ lab.domain }}/{{ inventory_hosts.pi4_01 }}
+address=/pi4-02.lab.{{ lab.domain }}/{{ inventory_hosts.pi4_02 }}
+address=/mikrotik-sw.lab.{{ lab.domain }}/{{ networking.mikrotik_mgmt_ip }}

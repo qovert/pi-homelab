@@ -18,7 +18,7 @@ Playbooks: `mikrotik.yml`, `pi-fw.yml`.
 | Service       | Type    | Listens         | Exposure                        |
 |---------------|---------|-----------------|---------------------------------|
 | `nftables`    | native  | —               | Firewall + NAT (LAN→WAN)        |
-| `dnsmasq`     | native  | LAN :53, :67    | DHCP + `*.lab` DNS for the VLAN |
+| `dnsmasq`     | native  | LAN :53, :67    | DHCP + `*.lab.bitrot.me` DNS for the VLAN |
 | `tailscaled`  | native  | —               | Subnet router for `10.42.0.0/24`|
 | `cloudflared` | native  | outbound only   | Public tunnel for `bitrot.me`   |
 
