@@ -50,6 +50,7 @@
         owner: "{{ ansible_access.admin_user }}"
         group: "{{ ansible_access.admin_user }}"
         mode: "0750"
+      become_user: "{{ ansible_access.admin_user }}"
       loop:
         - library
         - config
@@ -78,6 +79,7 @@
         owner: "{{ ansible_access.admin_user }}"
         group: "{{ ansible_access.admin_user }}"
         mode: "0750"
+      become_user: "{{ ansible_access.admin_user }}"
 
     - name: Enable and start Uptime Kuma
       ansible.builtin.systemd:
@@ -103,6 +105,7 @@
         owner: "{{ ansible_access.admin_user }}"
         group: "{{ ansible_access.admin_user }}"
         mode: "0750"
+      become_user: "{{ ansible_access.admin_user }}"
 
     - name: Deploy Homepage config files
       ansible.builtin.template:
@@ -111,6 +114,7 @@
         owner: "{{ ansible_access.admin_user }}"
         group: "{{ ansible_access.admin_user }}"
         mode: "0644"
+      become_user: "{{ ansible_access.admin_user }}"
       loop:
         - src: ../templates/homepage/services.yaml.j2
           dest: "{{ storage.data_dir }}/homepage/services.yaml"
@@ -165,6 +169,7 @@
         owner: "{{ ansible_access.admin_user }}"
         group: "{{ ansible_access.admin_user }}"
         mode: "0755"
+      become_user: "{{ ansible_access.admin_user }}"
 
     - name: Deploy nginx config
       ansible.builtin.template:
@@ -173,6 +178,7 @@
         owner: "{{ ansible_access.admin_user }}"
         group: "{{ ansible_access.admin_user }}"
         mode: "0644"
+      become_user: "{{ ansible_access.admin_user }}"
       notify: restart blog
 
     - name: Deploy blog container unit
@@ -215,6 +221,7 @@
     - name: Run initial blog build
       ansible.builtin.command:
         cmd: hugo --minify --source /opt/blog/source --destination /data/blog/public
+      become_user: "{{ ansible_access.admin_user }}"
       changed_when: true
 
     - name: Enable and start blog nginx
