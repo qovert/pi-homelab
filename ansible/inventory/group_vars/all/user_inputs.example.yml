@@ -25,7 +25,7 @@ networking:
   gateway: 10.42.0.1
   dhcp_range_start: 10.42.0.100
   dhcp_range_end: 10.42.0.200
-  mikrotik_mgmt_ip: 10.42.0.2
+
 
 storage:
   data_dir: /data

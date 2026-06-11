@@ -29,7 +29,7 @@
         commands:
           - >-
             /ip address add
-            address={{ networking.mikrotik_mgmt_ip }}/24
+            address={{ inventory_hosts.mikrotik_sw }}/24
             interface=bridge
             comment="lab management"
 
