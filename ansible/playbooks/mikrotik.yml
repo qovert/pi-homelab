@@ -8,21 +8,42 @@
       community.routeros.command:
         commands:
           - /system identity set name=mikrotik-sw
+      changed_when: false
 
     - name: Remove default DHCP server
       community.routeros.command:
         commands:
           - /ip dhcp-server remove [find]
+      changed_when: false
+      ignore_errors: true
 
     - name: Remove default DHCP address pool
       community.routeros.command:
         commands:
           - /ip pool remove [find]
+      changed_when: false
+      ignore_errors: true
 
     - name: Remove default DHCP network config
       community.routeros.command:
         commands:
           - /ip dhcp-server network remove [find]
+      changed_when: false
+      ignore_errors: true
+
+    - name: Remove default 192.168.88.1 address
+      community.routeros.command:
+        commands:
+          - /ip address remove [find where address~"192.168.88"]
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check management IP on bridge
+      community.routeros.command:
+        commands:
+          - /ip address print where address="{{ inventory_hosts.mikrotik_sw }}/24" interface=bridge
+      register: _mgmt_ip
+      changed_when: false
 
     - name: Add lab management IP to bridge
       community.routeros.command:
@@ -32,6 +53,14 @@
             address={{ inventory_hosts.mikrotik_sw }}/24
             interface=bridge
             comment="lab management"
+      when: _mgmt_ip.stdout[0] | trim == ""
+
+    - name: Check default route via pi-fw
+      community.routeros.command:
+        commands:
+          - /ip route print where dst-address="0.0.0.0/0" gateway="{{ networking.gateway }}"
+      register: _default_route
+      changed_when: false
 
     - name: Set default route via pi-fw
       community.routeros.command:
@@ -41,14 +70,10 @@
             dst-address=0.0.0.0/0
             gateway={{ networking.gateway }}
             comment="via pi-fw"
+      when: _default_route.stdout[0] | trim == ""
 
     - name: Point DNS at pi-fw
       community.routeros.command:
         commands:
           - /ip dns set servers={{ networking.gateway }}
-
-    - name: Remove default 192.168.88.1 address
-      community.routeros.command:
-        commands:
-          - /ip address remove [find where address~"192.168.88"]
-      ignore_errors: true
+      changed_when: false
