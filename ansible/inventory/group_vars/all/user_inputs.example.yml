@@ -64,4 +64,3 @@ services:
   blog:
     fqdn: "{{ lab.domain }}"           # apex domain
     hugo_version: "0.147.1"
-    git_repo: CHANGE_ME_REPO_URL

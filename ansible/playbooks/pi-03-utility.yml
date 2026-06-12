@@ -145,21 +145,13 @@
         remote_src: true
         mode: "0755"
 
-    - name: Create blog source directory
-      ansible.builtin.file:
-        path: /opt/blog/source
-        state: directory
-        owner: "{{ ansible_access.admin_user }}"
-        group: "{{ ansible_access.admin_user }}"
-        mode: "0755"
-
-    - name: Clone repo for blog builds
-      ansible.builtin.git:
-        repo: "{{ services.blog.git_repo }}"
-        dest: /opt/blog/source
-        version: main
-        update: true
-      become_user: "{{ ansible_access.admin_user }}"
+    - name: Sync blog source from repo
+      ansible.posix.synchronize:
+        src: "{{ playbook_dir }}/../blog/"
+        dest: /opt/blog/source/
+        delete: true
+        recursive: true
+      become: false
 
     - name: Create blog output directory
       ansible.builtin.file:
