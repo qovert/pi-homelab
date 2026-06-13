@@ -5,7 +5,7 @@ draft: false
 tags: ["homelab", "security", "authelia", "cloudflare", "lldap", "oidc"]
 ---
 
-Running services at home means eventually answering the question: how many different logins to I want to deal with? A single Tailscale ACL or an nginx basic auth block will get you through the weekend, but if you're exposing things to the internet — or you just want a real login screen instead of a password prompt from 1998 — you need a real auth stack. Alternatively, you enjoy over complicating your life for no real good reason. 
+Running services at home means eventually answering the question: how many different logins do I want to deal with? A single Tailscale ACL or an nginx basic auth block will get you through the weekend, but if you're exposing things to the internet — or you just want a real login screen instead of a password prompt from 1998 — you need a real auth stack. Alternatively, you enjoy over complicating your life for no real good reason. 
 
 Here's how mine works.
 
