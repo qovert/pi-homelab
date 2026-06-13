@@ -76,6 +76,40 @@ identity_providers:
         token_endpoint_auth_method: client_secret_basic
         claims_policy: cloudflare
 
+      - client_id: miniflux
+        client_name: Miniflux
+        client_secret: "$plaintext${{ vault.miniflux.oidc_client_secret }}"
+        public: false
+        authorization_policy: two_factor
+        redirect_uris:
+          - https://{{ services.miniflux.fqdn }}/oauth2/oidc/callback
+        scopes:
+          - openid
+          - profile
+          - email
+        grant_types:
+          - authorization_code
+        response_types:
+          - code
+        token_endpoint_auth_method: client_secret_basic
+
+      - client_id: nextcloud
+        client_name: Nextcloud
+        client_secret: "$plaintext${{ vault.nextcloud.oidc_client_secret }}"
+        public: false
+        authorization_policy: two_factor
+        redirect_uris:
+          - https://{{ services.nextcloud.fqdn }}/apps/user_oidc/code
+        scopes:
+          - openid
+          - profile
+          - email
+        grant_types:
+          - authorization_code
+        response_types:
+          - code
+        token_endpoint_auth_method: client_secret_basic
+
 notifier:
   # The IdP must not fail to boot if mail is unavailable — a mail outage should
   # never lock you out of every service. Delivery is still attempted at runtime.
