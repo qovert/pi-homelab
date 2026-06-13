@@ -88,7 +88,8 @@
         dest: /opt/authelia/configuration.yml
         owner: root
         group: root
-        mode: "0644"
+        mode: "0600"
+      no_log: true
       notify: restart authelia
 
     - name: Deploy Authelia env file

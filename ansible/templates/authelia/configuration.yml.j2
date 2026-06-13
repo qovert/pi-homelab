@@ -43,6 +43,29 @@ storage:
   local:
     path: /data/db.sqlite3
 
+identity_providers:
+  oidc:
+    jwks:
+      - key: |
+          {{ vault.authelia.oidc_private_key | indent(10) }}
+    clients:
+      - client_id: cloudflare-access
+        client_name: Cloudflare Access
+        public: false
+        authorization_policy: two_factor
+        redirect_uris:
+          - https://sparkling-recipe-d640.cloudflareaccess.com/cdn-cgi/access/callback
+        scopes:
+          - openid
+          - profile
+          - email
+          - groups
+        grant_types:
+          - authorization_code
+        response_types:
+          - code
+        token_endpoint_auth_method: client_secret_basic
+
 notifier:
   # The IdP must not fail to boot if mail is unavailable — a mail outage should
   # never lock you out of every service. Delivery is still attempted at runtime.
