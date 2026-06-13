@@ -20,8 +20,5 @@ ingress:
   - hostname: {{ services.uptime_kuma.fqdn }}
     service: http://{{ inventory_hosts.pi_03 }}:3001
 
-  - hostname: {{ services.blog.fqdn }}
-    service: http://{{ inventory_hosts.pi_03 }}:8090
-
   # Catch-all — must be last
   - service: http_status:404

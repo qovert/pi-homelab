@@ -61,6 +61,3 @@ services:
   homelabbot:
     rocketchat_url: "https://{{ services.rocketchat.fqdn }}"
     channel_name: general
-  blog:
-    fqdn: "{{ lab.domain }}"           # apex domain
-    hugo_version: "0.147.1"

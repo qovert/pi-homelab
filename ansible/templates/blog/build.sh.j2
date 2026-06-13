@@ -1,6 +1,0 @@
-#!/bin/bash
-# Managed by Ansible — do not edit manually
-set -euo pipefail
-
-hugo --minify --source /opt/blog/source --destination {{ storage.data_dir }}/blog/public
-echo "[blog-build] built at $(date -Iseconds)"
