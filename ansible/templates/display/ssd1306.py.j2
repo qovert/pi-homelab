@@ -25,6 +25,14 @@ def get_uptime():
     return f'{h}h{rem // 60:02d}m'
 
 
+def get_temp():
+    try:
+        with open('/sys/class/thermal/thermal_zone0/temp') as f:
+            return int(f.read()) / 1000
+    except Exception:
+        return 0.0
+
+
 serial = i2c(port={{ display.i2c_bus }}, address={{ display.i2c_address }})
 device = ssd1306(serial)
 
@@ -34,11 +42,12 @@ while True:
     cpu = psutil.cpu_percent(interval=1)
     mem = psutil.virtual_memory().percent
     uptime = get_uptime()
+    temp = get_temp()
 
     with canvas(device) as draw:
-        draw.text((0,  0), hostname,              fill='white')
-        draw.text((0, 16), ip,                    fill='white')
-        draw.text((0, 32), f'CPU: {cpu:4.1f}%',   fill='white')
-        draw.text((0, 48), f'MEM: {mem:4.1f}%  {uptime}', fill='white')
+        draw.text((0,  0), hostname,                              fill='white')
+        draw.text((0, 16), ip,                                    fill='white')
+        draw.text((0, 32), f'CPU:{cpu:4.1f}%  {uptime}',         fill='white')
+        draw.text((0, 48), f'MEM:{mem:4.1f}%  {temp:.0f}C',      fill='white')
 
     time.sleep(5)
