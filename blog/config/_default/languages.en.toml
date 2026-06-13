@@ -4,8 +4,4 @@ weight = 1
 title = "bitrot"
 
 [params]
-  [params.author]
-    name = "brian h"
-    image = "img/author.jpg"
-    bio = ""
-    links = []
+  author = "brian h"
