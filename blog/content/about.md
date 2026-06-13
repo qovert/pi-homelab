@@ -3,7 +3,7 @@ title: "About"
 layout: "page"
 ---
 
-{{< figure src="/img/avatar.jpg" width="120" >}}
+{{< figure src="/img/avatar.jpg" width="120" class="align-center" >}}
 
 I work in IT at a university, which means I spend my days keeping other people's computers alive and my nights doing the same for my own — voluntarily, for fun.
 
