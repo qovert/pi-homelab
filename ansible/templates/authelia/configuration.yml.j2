@@ -59,7 +59,7 @@ identity_providers:
     clients:
       - client_id: cloudflare-access
         client_name: Cloudflare Access
-        client_secret: "$plaintext${{ vault.authelia.oidc_clients.cloudflare_access.secret }}"
+        client_secret: "{{ vault.authelia.oidc_clients.cloudflare_access.secret_hash }}"
         public: false
         authorization_policy: two_factor
         redirect_uris:
@@ -78,7 +78,7 @@ identity_providers:
 
       - client_id: miniflux
         client_name: Miniflux
-        client_secret: "$plaintext${{ vault.miniflux.oidc_client_secret }}"
+        client_secret: "{{ vault.miniflux.oidc_client_secret_hash }}"
         public: false
         authorization_policy: two_factor
         redirect_uris:
@@ -95,7 +95,7 @@ identity_providers:
 
       - client_id: nextcloud
         client_name: Nextcloud
-        client_secret: "$plaintext${{ vault.nextcloud.oidc_client_secret }}"
+        client_secret: "{{ vault.nextcloud.oidc_client_secret_hash }}"
         public: false
         authorization_policy: two_factor
         redirect_uris:
