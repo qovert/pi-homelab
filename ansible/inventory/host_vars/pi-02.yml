@@ -24,3 +24,5 @@ compose_projects:
     dir: /opt/miniflux
   - name: syncthing
     dir: /opt/syncthing
+  - name: vaultwarden
+    dir: /opt/vaultwarden

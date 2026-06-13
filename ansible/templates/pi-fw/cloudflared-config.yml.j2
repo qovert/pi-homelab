@@ -20,5 +20,8 @@ ingress:
   - hostname: {{ services.uptime_kuma.fqdn }}
     service: http://{{ inventory_hosts.pi_03 }}:3001
 
+  - hostname: {{ services.vaultwarden.fqdn }}
+    service: http://{{ inventory_hosts.pi_02 }}:8082
+
   # Catch-all — must be last
   - service: http_status:404

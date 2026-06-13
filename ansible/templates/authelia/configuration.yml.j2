@@ -111,6 +111,23 @@ identity_providers:
           - code
         token_endpoint_auth_method: client_secret_post
 
+      - client_id: vaultwarden
+        client_name: Vaultwarden
+        client_secret: "{{ vault.vaultwarden.oidc_client_secret_hash }}"
+        public: false
+        authorization_policy: two_factor
+        redirect_uris:
+          - https://{{ services.vaultwarden.fqdn }}/identity/connect/oidc-signin
+        scopes:
+          - openid
+          - profile
+          - email
+        grant_types:
+          - authorization_code
+        response_types:
+          - code
+        token_endpoint_auth_method: client_secret_basic
+
 notifier:
   # The IdP must not fail to boot if mail is unavailable — a mail outage should
   # never lock you out of every service. Delivery is still attempted at runtime.

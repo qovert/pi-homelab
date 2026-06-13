@@ -1,0 +1,16 @@
+[Unit]
+Description=Vaultwarden
+After=network-online.target local-fs.target
+
+[Container]
+Image=docker.io/vaultwarden/server:latest
+ContainerName=vaultwarden
+EnvironmentFile=/opt/vaultwarden/vaultwarden.env
+Volume={{ storage.data_dir }}/vaultwarden:/data
+PublishPort=8082:80
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

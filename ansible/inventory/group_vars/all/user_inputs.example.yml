@@ -58,6 +58,8 @@ services:
     fqdn: "books.{{ lab.domain }}"
   uptime_kuma:
     fqdn: "status.{{ lab.domain }}"
+  vaultwarden:
+    fqdn: "vault.{{ lab.domain }}"
   homelabbot:
     rocketchat_url: "https://{{ services.rocketchat.fqdn }}"
     channel_name: general
