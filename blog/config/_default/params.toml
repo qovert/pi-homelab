@@ -5,10 +5,12 @@ autoSwitchAppearance = true
 enableSearch = true
 enableCodeCopy = true
 
-[homepage]
-  layout = "profile"
-  showRecent = true
-  showRecentItems = 5
+[profileMode]
+  enabled = true
+  title = "bitrot"
+  imageUrl = "img/avatar.jpg"
+  imageWidth = 120
+  imageHeight = 120
 
 [article]
   showDate = true
