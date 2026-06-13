@@ -3,7 +3,7 @@ title: "About"
 layout: "page"
 ---
 
-![brian h](/img/avatar.jpg)
+{{< figure src="/img/avatar.jpg" width="120" >}}
 
 I work in IT at a university, which means I spend my days keeping other people's computers alive and my nights doing the same for my own — voluntarily, for fun.
 
