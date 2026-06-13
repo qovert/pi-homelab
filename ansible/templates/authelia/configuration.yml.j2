@@ -45,6 +45,14 @@ storage:
 
 identity_providers:
   oidc:
+    claims_policies:
+      cloudflare:
+        id_token:
+          - email
+          - email_verified
+          - name
+          - preferred_username
+          - groups
     jwks:
       - key: |
           {{ vault.authelia.oidc_private_key | indent(10) }}
@@ -66,6 +74,7 @@ identity_providers:
         response_types:
           - code
         token_endpoint_auth_method: client_secret_basic
+        claims_policy: cloudflare
 
 notifier:
   # The IdP must not fail to boot if mail is unavailable — a mail outage should
