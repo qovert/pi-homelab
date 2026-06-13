@@ -65,6 +65,7 @@ identity_providers:
         response_types:
           - code
         token_endpoint_auth_method: client_secret_basic
+        pkce_method: S256
 
 notifier:
   # The IdP must not fail to boot if mail is unavailable — a mail outage should
