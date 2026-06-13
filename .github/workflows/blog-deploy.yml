@@ -1,4 +1,4 @@
-name: Deploy blog to Cloudflare Pages
+name: Deploy blog to Cloudflare Workers
 
 on:
   push:
@@ -25,9 +25,9 @@ jobs:
       - name: Build
         run: hugo --minify --source blog
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy blog/public --project-name=bitrot-me
+          workingDirectory: blog
