@@ -254,12 +254,13 @@
         state: present
         update_cache: true
 
+    # Mount point only needs to exist — no chown. Once NFS is mounted the
+    # underlying directory's ownership is irrelevant, and root_squash prevents
+    # chown from succeeding on a re-run anyway.
     - name: Create /data mount point
       ansible.builtin.file:
         path: "{{ storage.data_dir }}"
         state: directory
-        owner: root
-        group: root
         mode: "0755"
 
     - name: Mount NFS /data from pi-nas
