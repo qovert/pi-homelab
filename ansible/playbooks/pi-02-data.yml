@@ -209,6 +209,22 @@
         daemon_reload: true
 
     # --- Vaultwarden ---
+    - name: Create /opt/vaultwarden directory
+      ansible.builtin.file:
+        path: /opt/vaultwarden
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Create Vaultwarden data directory
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/vaultwarden"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
     - name: Deploy Vaultwarden container unit
       ansible.builtin.template:
         src: ../templates/vaultwarden/vaultwarden.container.j2
@@ -227,22 +243,6 @@
         mode: "0600"
       no_log: true
       notify: restart vaultwarden
-
-    - name: Create Vaultwarden data directory
-      ansible.builtin.file:
-        path: "{{ storage.data_dir }}/vaultwarden"
-        state: directory
-        owner: root
-        group: root
-        mode: "0750"
-
-    - name: Create /opt/vaultwarden directory
-      ansible.builtin.file:
-        path: /opt/vaultwarden
-        state: directory
-        owner: root
-        group: root
-        mode: "0750"
 
     - name: Enable and start Vaultwarden
       ansible.builtin.systemd:
