@@ -6,11 +6,7 @@ enableSearch = true
 enableCodeCopy = true
 
 [profileMode]
-  enabled = true
-  title = "bitrot"
-  imageUrl = "img/avatar.jpg"
-  imageWidth = 120
-  imageHeight = 120
+  enabled = false
 
 [article]
   showDate = true
