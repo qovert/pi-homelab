@@ -6,7 +6,7 @@ After=network-online.target local-fs.target
 Image=docker.io/jvmilazz0/kavita:latest
 ContainerName=kavita
 Volume={{ storage.data_dir }}/kavita/library:/manga
-Volume={{ storage.data_dir }}/kavita/config:/kavita/config
+Volume=/opt/kavita/config:/kavita/config
 PublishPort=5000:5000
 Environment=TZ=UTC
 

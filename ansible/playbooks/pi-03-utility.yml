@@ -34,17 +34,23 @@
         mode: "0644"
       notify: restart kavita
 
-    - name: Create Kavita data directories
+    - name: Create Kavita library directory on NFS
       ansible.builtin.file:
-        path: "{{ storage.data_dir }}/kavita/{{ item }}"
+        path: "{{ storage.data_dir }}/kavita/library"
         state: directory
         owner: "{{ ansible_access.admin_user }}"
         group: "{{ ansible_access.admin_user }}"
         mode: "0750"
       become_user: "{{ ansible_access.admin_user }}"
-      loop:
-        - library
-        - config
+
+    # SQLite on NFS is unreliable — config (db) lives on local disk
+    - name: Create Kavita config directory (local)
+      ansible.builtin.file:
+        path: /opt/kavita/config
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
 
     - name: Enable and start Kavita
       ansible.builtin.systemd:
@@ -63,14 +69,15 @@
         mode: "0644"
       notify: restart uptime-kuma
 
-    - name: Create Uptime Kuma data directory
+    # SQLite on NFS is unreliable — data lives on local disk.
+    # Uptime Kuma runs as node (UID 1000) inside the container.
+    - name: Create Uptime Kuma data directory (local)
       ansible.builtin.file:
-        path: "{{ storage.data_dir }}/uptime-kuma"
+        path: /opt/uptime-kuma/data
         state: directory
-        owner: "{{ ansible_access.admin_user }}"
-        group: "{{ ansible_access.admin_user }}"
+        owner: "1000"
+        group: "1000"
         mode: "0750"
-      become_user: "{{ ansible_access.admin_user }}"
 
     - name: Enable and start Uptime Kuma
       ansible.builtin.systemd:
