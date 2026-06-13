@@ -51,6 +51,7 @@ identity_providers:
     clients:
       - client_id: cloudflare-access
         client_name: Cloudflare Access
+        client_secret: "$plaintext${{ vault.authelia.oidc_clients.cloudflare_access.secret }}"
         public: false
         authorization_policy: two_factor
         redirect_uris:
