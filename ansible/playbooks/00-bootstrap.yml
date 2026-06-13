@@ -509,6 +509,13 @@
   hosts: all:!switch:!fw
   become: true
 
+  handlers:
+    - name: restart node-display
+      ansible.builtin.systemd:
+        name: node-display.service
+        state: restarted
+        daemon_reload: true
+
   tasks:
     - name: Skip nodes without a display configured
       ansible.builtin.meta: end_host
@@ -555,6 +562,7 @@
         owner: root
         group: root
         mode: "0755"
+      notify: restart node-display
 
     - name: Deploy display systemd service
       ansible.builtin.template:
