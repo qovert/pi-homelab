@@ -73,6 +73,14 @@
         mode: "0644"
       notify: restart dnsmasq
 
+    - name: Create dnsmasq systemd drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/dnsmasq.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
     - name: Deploy dnsmasq systemd drop-in for network ordering
       ansible.builtin.copy:
         dest: /etc/systemd/system/dnsmasq.service.d/wait-for-network.conf
