@@ -138,6 +138,11 @@
         state: started
         enabled: true
 
+    - name: Advertise LAN subnet via Tailscale
+      ansible.builtin.command:
+        cmd: tailscale set --advertise-routes=10.42.0.0/24
+      changed_when: false
+
     - name: Install cloudflared
       ansible.builtin.apt:
         deb: https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
