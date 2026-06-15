@@ -18,6 +18,18 @@
         fail_msg: Fill vault.cloudflare.tunnel_token in vault.yml before running this playbook.
 
   tasks:
+    - name: Configure WAN interface to ignore upstream DNS
+      community.general.nmcli:
+        conn_name: "{{ pi_fw_wan_iface }}"
+        ifname: "{{ pi_fw_wan_iface }}"
+        type: ethernet
+        dns4_ignore_auto: true
+        method4: auto
+        method6: disabled
+        autoconnect: true
+        state: present
+      notify: nmcli up wan
+
     - name: Configure LAN interface with static IP
       community.general.nmcli:
         conn_name: "{{ pi_fw_lan_iface }}-lan"
@@ -175,6 +187,11 @@
         daemon_reload: true
 
   handlers:
+    - name: nmcli up wan
+      ansible.builtin.command:
+        cmd: nmcli connection up {{ pi_fw_wan_iface }}
+      changed_when: true
+
     - name: nmcli up lan
       ansible.builtin.command:
         cmd: nmcli connection up {{ pi_fw_lan_iface }}-lan
