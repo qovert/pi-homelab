@@ -24,11 +24,20 @@
         ifname: "{{ pi_fw_lan_iface }}"
         type: ethernet
         ip4: "{{ networking.gateway }}/24"
+        dns4:
+          - 127.0.0.1
+        dns4_ignore_auto: true
         method4: manual
         method6: disabled
         autoconnect: true
         state: present
       notify: nmcli up lan
+
+    - name: Disable Tailscale DNS management on pi-fw
+      ansible.builtin.command:
+        cmd: tailscale set --accept-dns=false
+      register: tailscale_dns
+      changed_when: false
 
     - name: Enable IP forwarding
       ansible.posix.sysctl:
