@@ -73,11 +73,29 @@
         mode: "0644"
       notify: restart dnsmasq
 
+    - name: Deploy dnsmasq systemd drop-in for network ordering
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/dnsmasq.service.d/wait-for-network.conf
+        content: |
+          [Unit]
+          After=network-online.target
+          Wants=network-online.target
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart dnsmasq
+
+    - name: Enable NetworkManager-wait-online
+      ansible.builtin.systemd:
+        name: NetworkManager-wait-online.service
+        enabled: true
+
     - name: Enable and start dnsmasq
       ansible.builtin.systemd:
         name: dnsmasq
         state: started
         enabled: true
+        daemon_reload: true
 
     - name: Install Tailscale
       ansible.builtin.shell: |
