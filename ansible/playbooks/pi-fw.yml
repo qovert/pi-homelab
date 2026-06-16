@@ -107,8 +107,8 @@
         dest: /etc/systemd/system/dnsmasq.service.d/wait-for-network.conf
         content: |
           [Unit]
-          After=network-online.target
-          Wants=network-online.target
+          After=network-online.target tailscaled.service
+          Wants=network-online.target tailscaled.service
         owner: root
         group: root
         mode: "0644"
