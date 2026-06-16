@@ -15,17 +15,23 @@ Access (except the blog apex). Internal-only services are reached over Tailscale
 Router, firewall, DNS, and ingress. No containers; everything is native.
 Playbooks: `mikrotik.yml`, `pi-fw.yml`.
 
-| Service       | Type    | Listens         | Exposure                        |
-|---------------|---------|-----------------|---------------------------------|
-| `nftables`    | native  | —               | Firewall + NAT (LAN→WAN)        |
-| `dnsmasq`     | native  | LAN :53, :67    | DHCP + `*.lab.bitrot.me` DNS for the VLAN |
-| `tailscaled`  | native  | —               | Subnet router for `10.42.0.0/24`|
-| `cloudflared` | native  | outbound only   | Public tunnel for `bitrot.me`   |
+| Service       | Type    | Listens                        | Exposure                        |
+|---------------|---------|--------------------------------|---------------------------------|
+| `nftables`    | native  | —                              | Firewall + NAT (LAN→WAN)        |
+| `dnsmasq`     | native  | LAN :53/:67, tailscale0 :53    | DHCP + `*.lab.bitrot.me` DNS for the VLAN and Tailscale clients |
+| `tailscaled`  | native  | —                              | Subnet router for `10.42.0.0/24`; exposes lab to tailnet |
+| `cloudflared` | native  | outbound only                  | Public tunnel for `bitrot.me`   |
 
-- WAN interface (`eth1`) takes DHCP from the upstream router. LAN interface
-  (`eth2`) is the gateway for the lab at `10.42.0.1` and feeds the MikroTik switch.
+- WAN interface (`eth1`) takes DHCP from the upstream router but ignores DHCP-pushed
+  DNS. LAN interface (`eth2`) is the gateway for the lab at `10.42.0.1` and feeds the
+  MikroTik switch.
+- pi-fw uses its own dnsmasq (`127.0.0.1`) for DNS; Tailscale `accept-dns` is disabled
+  so MagicDNS cannot overwrite `/etc/resolv.conf`.
 - SSH is firewalled to the LAN and `tailscale0` only.
 - Cloudflare ingress rules live in `templates/pi-fw/cloudflared-config.yml.j2`.
+- **Tailscale split DNS:** to resolve `*.lab.bitrot.me` on Tailscale clients, add a
+  custom nameserver for `lab.bitrot.me` pointing to `100.82.17.40` in the Tailscale
+  admin console. The subnet route (`10.42.0.0/24`) must also be approved there.
 
 ---
 

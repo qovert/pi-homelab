@@ -162,9 +162,11 @@ ansible-playbook playbooks/10-foundation.yml   # mikrotik + pi-fw
 ```
 
 The Cloudflare tunnel and Tailscale re-establish outbound automatically once
-`cloudflared` and `tailscaled` are back. Re-run `tailscale up
---advertise-routes=10.42.0.0/24` and re-approve the route if the node is new to
-the tailnet.
+`cloudflared` and `tailscaled` are back. Tailscale authentication is manual on a
+new node (`tailscale up`); once authenticated the playbook handles
+`--advertise-routes` and `--accept-dns=false` automatically. Re-approve the subnet
+route (`10.42.0.0/24`) in the Tailscale admin console if the node is new to the
+tailnet.
 
 ---
 
