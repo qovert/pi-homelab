@@ -9,6 +9,11 @@ ContainerName=homepage
 # squashed to an anonymous UID with no access to the admin-owned (750) dir.
 # Pin to UID 1000 (admin) to match, same pattern as uptime-kuma.
 User=1000:1000
+# Homepage (Next.js) validates the Host header and rejects anything not
+# explicitly listed here -- without this, every hostname/IP other than
+# whatever it happened to be first configured with gets "Host validation
+# failed" in the logs and a blank response.
+Environment=HOMEPAGE_ALLOWED_HOSTS=pi-03.lab.{{ lab.domain }}:3000,{{ inventory_hosts.pi_03 }}:3000,localhost:3000
 Volume={{ storage.data_dir }}/homepage:/app/config
 PublishPort=3000:3000
 
