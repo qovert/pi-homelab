@@ -6,3 +6,6 @@
 {% if inventory_hosts.pi4_02 is defined %}
 {{ storage.data_dir }}/nfs/pi4-02   {{ inventory_hosts.pi4_02 }}(rw,sync,no_subtree_check,root_squash)
 {% endif %}
+{% if inventory_hosts.pi_05 is defined %}
+{{ storage.data_dir }}/nfs/pi-05    {{ inventory_hosts.pi_05 }}(rw,sync,no_subtree_check,root_squash)
+{% endif %}

@@ -57,6 +57,7 @@
         - pi-03
         - pi4-01
         - pi4-02
+        - pi-05
 
     - name: Deploy NFS exports
       ansible.builtin.template:
