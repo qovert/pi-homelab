@@ -15,9 +15,9 @@ Remote client ──▶ Tailscale mesh ──┐       │
                                    ▼       ▼
                                  pi-fw  (router / firewall / DNS / tunnel)
                                    │  VLAN 10 — 10.42.0.0/24
-        ┌──────────────────┬───────┴────────┬──────────────────┐
-      pi-01              pi-02             pi-03              pi-nas
-      comms              data              utility            storage
+   ┌──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
+ pi-01      pi-02      pi-03      pi-04      pi-05      pi-nas
+ comms      data       utility    identity   spare      storage
 ```
 
 `pi-fw` is the only node with a foot in two networks: a WAN interface that takes a
@@ -32,9 +32,10 @@ network), and `cloudflared` (the public tunnel). No containers run on `pi-fw`.
 |----------|---------------------------------|--------------------------|-------------------------------------------------|
 | `pi-fw`  | Pi 5 + [dual 2.5GbE HAT](https://docs.radxa.com/en/accessories/network/dual-2.5-router-hat)          | SD                       | Router, firewall, DNS, Tailscale, Cloudflare    |
 | `pi-01`  | Pi 5                            | NVMe                     | Comms: Rocket.Chat, HomelabBot                  |
-| `pi-02`  | Pi 5                            | NVMe                     | Data: Nextcloud, Miniflux, Syncthing            |
+| `pi-02`  | Pi 5                            | NVMe                     | Data: Nextcloud, Miniflux, Syncthing, Vaultwarden, MeTube |
 | `pi-03`  | Pi 4                            | NFS from `pi-nas`        | Utility: Kavita, Uptime Kuma, Homepage, blog    |
-| `pi-04`  | Pi 4                            | NFS from `pi-nas`        | Ansible control node, spare                     |
+| `pi-04`  | Pi 4                            | Local SD (not NFS)       | Identity: Authelia (OIDC) + LLDAP; fallback Ansible control node |
+| `pi-05`  | Pi 4                            | NFS from `pi-nas`        | Spare — bootstrapped only, no service role assigned yet |
 | `pi-nas` | Pi 5 + [Radxa Penta SATA HAT](https://docs.radxa.com/en/accessories/storage/penta-sata-hat)     | 4× SATA SSD, btrfs RAID-10 | NFS server for the Pi 4 nodes                  |
 
 A MikroTik CRS310 managed switch enforces the lab VLAN and is configured via
@@ -48,9 +49,9 @@ display (SSD1306 OLED on the Pi 5/Pi 4 nodes, a 20×4 character LCD on `pi-nas`)
 - **Public services** are exposed only through the Cloudflare Tunnel, gated by
   Cloudflare Access. TLS terminates at the Cloudflare edge; traffic inside the lab
   is plain HTTP on the private VLAN.
-- **Admin access** (SSH, Syncthing UI, Homepage) is reachable over Tailscale using
-  `*.lab` short names resolved by `pi-fw`. SSH is firewalled to the LAN and the
-  Tailscale interface only.
+- **Admin access** (SSH, Syncthing UI, MeTube, Homepage, LLDAP admin UI) is
+  reachable over Tailscale using `*.lab` short names resolved by `pi-fw`. SSH
+  is firewalled to the LAN and the Tailscale interface only.
 
 ## Containers
 
@@ -67,9 +68,12 @@ ansible/
     hosts.yml                     # node groups
     group_vars/all/
       user_inputs.yml             # non-secret config (gitignored)
-      user_inputs.example.yml     # template
       vault.yml                   # ansible-vault encrypted secrets (gitignored)
-      vault.example.yml           # template
+    examples/                     # templates -- deliberately NOT under group_vars/,
+      user_inputs.example.yml     # since Ansible's group_vars/<group>/ loading treats
+      vault.example.yml           # every .yml file there as live vars, "example" name
+                                   # or not (this silently masked a missing
+                                   # user_inputs.yml with placeholder values once)
     host_vars/                    # per-node addresses, displays, backup targets
   playbooks/
     site.yml                      # full run: bootstrap → foundation → services
@@ -77,7 +81,8 @@ ansible/
     10-foundation.yml             # mikrotik switch + pi-fw
     20-services.yml               # all service nodes
     mikrotik.yml, pi-fw.yml
-    pi-01-comms.yml, pi-02-data.yml, pi-03-utility.yml, pi-04-control.yml, pi-nas.yml
+    pi-01-comms.yml, pi-02-data.yml, pi-03-utility.yml, pi-04-identity.yml, pi-nas.yml
+    # pi-05 (spare) is bootstrapped only, via 00-bootstrap.yml's pi4_nodes group play
   templates/                      # quadlets, systemd units, service configs
 blog/                             # Hugo source for bitrot.me (PaperMod)
 plan.md                           # original architecture plan
@@ -92,9 +97,9 @@ to be present.
 
 ```bash
 # First-time secrets setup
-cp ansible/inventory/group_vars/all/user_inputs.example.yml \
+cp ansible/inventory/examples/user_inputs.example.yml \
    ansible/inventory/group_vars/all/user_inputs.yml
-cp ansible/inventory/group_vars/all/vault.example.yml \
+cp ansible/inventory/examples/vault.example.yml \
    ansible/inventory/group_vars/all/vault.yml
 ansible-vault encrypt ansible/inventory/group_vars/all/vault.yml
 # edit both files to fill in CHANGE_ME values
@@ -110,8 +115,12 @@ ansible-playbook playbooks/pi-fw.yml
 ansible-playbook playbooks/pi-02-data.yml --limit pi-02
 ```
 
-`user_inputs.yml` and `vault.yml` are gitignored; the `.example.yml` files are the
-committed templates. Secrets live only in the encrypted vault.
+`user_inputs.yml` and `vault.yml` are gitignored; the `.example.yml` files under
+`inventory/examples/` are the committed templates. Secrets live only in the
+encrypted vault. These files are edited directly on `pi-fw` as the normal
+workflow — since they're gitignored, any other checkout's copies are a
+point-in-time snapshot with no sync mechanism and can silently go stale;
+diff against pi-fw's real copies before assuming a variable doesn't exist.
 
 ## Backups
 

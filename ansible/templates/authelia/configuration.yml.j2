@@ -111,6 +111,29 @@ identity_providers:
           - code
         token_endpoint_auth_method: client_secret_post
 
+      - client_id: rocketchat
+        client_name: Rocket.Chat
+        client_secret: "{{ vault.rocketchat.oidc_client_secret_hash }}"
+        public: false
+        authorization_policy: two_factor
+        # Rocket.Chat's admin-facing Custom OAuth service was created named
+        # "Authelia" (capital A), but its callback route is keyed off the
+        # lowercase internal service identifier, not that display name --
+        # confirmed live: /_oauth/Authelia never reached oauth_server.js at
+        # all, only /_oauth/authelia did. Don't "fix" this back to match the
+        # display name casing.
+        redirect_uris:
+          - https://{{ services.rocketchat.fqdn }}/_oauth/authelia
+        scopes:
+          - openid
+          - profile
+          - email
+        grant_types:
+          - authorization_code
+        response_types:
+          - code
+        token_endpoint_auth_method: client_secret_basic
+
       - client_id: vaultwarden
         client_name: Vaultwarden
         client_secret: "{{ vault.vaultwarden.oidc_client_secret_hash }}"

@@ -52,6 +52,23 @@ NVMe storage. Playbook: `pi-01-comms.yml`.
 - Mail is not self-hosted on this lab — outbound app notifications relay through
   the self-hosted Mailu on hrkr.io's mail-01 (`services.mail`, auth as
   `noreply@bitrot.me`); inbound mail for bitrot.me also lives on mail-01.
+  Rocket.Chat's own SMTP settings are set via `OVERWRITE_SETTING_SMTP_*` env
+  vars in `rocketchat.env.j2` rather than the admin UI/API (settings changes
+  there require the admin's own TOTP step-up, which a deploy can't provide).
+- **SSO via Authelia (OIDC)**: registered as client_id `rocketchat` in
+  `authelia/configuration.yml.j2`. Custom OAuth service is created in the
+  admin UI named `Authelia` (capital A) — but the callback route is keyed off
+  the lowercase internal service name, so `redirect_uris` must point at
+  `/_oauth/authelia` (lowercase), not `/_oauth/Authelia`. `key_field` must be
+  `sub` (or another claim Authelia's userinfo actually returns) — its default
+  of `username` doesn't exist as a claim and silently breaks every login with
+  `User not found [401]` even though the identity response itself is fine.
+  `merge_users: true` matches by email, so an existing account only merges
+  correctly if its stored email matches what Authelia/LLDAP asserts for that
+  user — otherwise a new, non-admin account gets created instead, with its
+  username defaulted to the raw `sub` UUID. `OVERWRITE_SETTING_*` can seed
+  these fields on a fresh deploy, but once saved once via the admin UI they
+  become "admin-touched" and no longer accept further env-var overrides.
 
 ---
 
@@ -95,8 +112,40 @@ Pi 4. `/data` is NFS-mounted from `pi-nas`. Playbook: `pi-03-utility.yml`.
 - The blog is a Hugo static site (PaperMod theme). A systemd timer
   (`blog-build`) polls the source repo and rebuilds into `/data/blog/public`;
   nginx serves the output. Source is cloned to `/opt/blog/source`.
-- Homepage is the internal dashboard; not exposed publicly.
+- Homepage is the internal dashboard; not exposed publicly. Its container
+  image (`ghcr.io/gethomepage/homepage`) validates the Host header and
+  rejects anything not in `HOMEPAGE_ALLOWED_HOSTS` — every hostname/IP it's
+  reached by (including the `pi-03.lab.bitrot.me` wildcard-DNS name) needs to
+  be listed there or requests fail with "Host validation failed" in the logs
+  and a blank page in the browser.
+- Homepage's config dir is on NFS (root_squash) — the image defaults to
+  running as root, which gets squashed to an anonymous UID with no access to
+  the admin-owned (750) config dir. Pinned to `User=1000:1000` in the
+  quadlet to match, same pattern as Uptime Kuma.
 - The blog apex (`bitrot.me`) is the only public hostname not behind Access.
+- **This node's NFS mount from pi-nas took kavita/homepage/blog down for over
+  a month (2026-06-13 to 2026-07-27)** after a mass reboot where pi-nas
+  wasn't up yet — the one-shot mount attempt failed and nothing ever
+  retried. Mitigated with `x-systemd.automount` (see pi-nas above for the
+  `_netdev` gotcha), confirmed to survive a real reboot, but this fix was
+  not exhaustively stress-tested against every possible boot-race timing —
+  worth a closer look if it recurs.
+
+---
+
+## pi-05 — 10.42.0.16 (spare)
+
+Pi 4. `/data` is NFS-mounted from `pi-nas`. Bootstrapped only (base
+hardening, NFS mount, I2C display) — no service role assigned yet.
+Playbook: `00-bootstrap.yml` (`pi4_nodes` group play covers it, despite the
+naming mismatch — see note below).
+
+- Named `pi-05` rather than `pi4-01`/`pi4-02` (the other reserved-but-unused
+  spare slots) because this one won't stay role-less for long; it's grouped
+  under `pi4_nodes` in `hosts.yml` anyway since that play (generic NFS-mount
+  bootstrap, no fixed service) is exactly what an unassigned node needs
+  regardless of its final name.
+- MAC-verified: `dc:a6:32:6b:ac:77`.
 
 ---
 
@@ -107,10 +156,14 @@ Pi 5 + Radxa Penta SATA HAT, 4× SATA SSD. Playbook: `pi-nas.yml`.
 | Service            | Type   | Detail                                                |
 |--------------------|--------|-------------------------------------------------------|
 | btrfs RAID-10      | native | 4 SSDs, label `pi-nas-data`, mounted at `/data`       |
-| `nfs-kernel-server`| native | Exports `/data/nfs/{pi-03,pi4-01,pi4-02}`             |
+| `nfs-kernel-server`| native | Exports `/data/nfs/{pi-03,pi4-01,pi4-02,pi-05}`       |
 
 - The array is created with `--sectorsize 16384` to match the Pi 5 page size.
 - NFS exports back the Pi 4 nodes, which have no local bulk storage.
+- `_netdev` must **not** be combined with `x-systemd.automount` on the client
+  mount options (see pi-03 above) — `_netdev` alone pulls the mount into
+  `remote-fs.target`'s eager boot-time chain regardless, defeating the whole
+  point of the automount indirection.
 
 ---
 
@@ -148,7 +201,7 @@ load. Configured per-host in `host_vars` (`display:` block) and deployed by
 
 | Node              | Display              | I2C address |
 |-------------------|----------------------|-------------|
-| pi-01 … pi-04     | SSD1306 OLED 128×64  | `0x3C`      |
+| pi-01 … pi-05     | SSD1306 OLED 128×64  | `0x3C`      |
 | pi-nas            | Character LCD 20×4   | `0x27`      |
 
 ---
@@ -166,3 +219,4 @@ Configured in `templates/pi-fw/cloudflared-config.yml.j2`.
 | `rss.bitrot.me`     | `pi-02:8081`           | Access      |
 | `books.bitrot.me`   | `pi-03:5000`           | Access      |
 | `status.bitrot.me`  | `pi-03:3001`           | Access      |
+| `vault.bitrot.me`   | `pi-02:8082`           | Access      |
