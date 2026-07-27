@@ -1,4 +1,10 @@
 ansible_host: "{{ inventory_hosts.pi_05 }}"
+dhcp_mac: "dc:a6:32:6b:ac:77"
+
+display:
+  type: ssd1306
+  i2c_bus: 1
+  i2c_address: "0x3C"
 
 restic_node_name: pi-05
 restic_postgres_dumps: []
