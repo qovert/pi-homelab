@@ -1,0 +1,5 @@
+ansible_host: "{{ inventory_hosts.pi_05 }}"
+
+restic_node_name: pi-05
+restic_postgres_dumps: []
+compose_projects: []
