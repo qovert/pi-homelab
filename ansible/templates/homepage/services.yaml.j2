@@ -13,12 +13,24 @@
         href: https://{{ services.miniflux.fqdn }}
         description: RSS reader
         icon: miniflux.svg
+    - Vaultwarden:
+        href: https://{{ services.vaultwarden.fqdn }}
+        description: Password manager
+        icon: vaultwarden.svg
+    - Syncthing:
+        href: "http://{{ inventory_hosts.pi_02 }}:8384"
+        description: "File sync UI (internal-only, Tailscale)"
+        icon: syncthing.svg
 
 - Library:
     - Kavita:
         href: https://{{ services.kavita.fqdn }}
         description: Ebook library
         icon: kavita.svg
+    - MeTube:
+        href: "http://{{ inventory_hosts.pi_02 }}:8083"
+        description: "yt-dlp web UI (internal-only, Tailscale)"
+        icon: metube.svg
 
 - Monitoring:
     - Uptime Kuma:
