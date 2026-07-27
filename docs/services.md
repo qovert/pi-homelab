@@ -67,11 +67,17 @@ NVMe storage. Playbook: `pi-02-data.yml`.
 | Miniflux          | `miniflux`         | 8081 → 8080            | `rss.bitrot.me`   | (in Postgres)                |
 | Miniflux DB       | `miniflux-db`      | internal               | —                 | `/data/miniflux/postgres`    |
 | Syncthing         | `syncthing`        | 8384 (UI), 22000, 21027| — (Tailscale)     | `/data/syncthing`            |
+| Vaultwarden       | `vaultwarden`      | 8082 → 80              | `vault.bitrot.me` | `/data/vaultwarden`          |
+| MeTube            | `metube`           | 8083 → 8081            | — (Tailscale)     | `/data/metube`               |
 
 - Postgres data dirs must be owned by **UID 70** (`postgres:16-alpine`).
 - Nextcloud trusts `pi-fw` (10.42.0.1) as a reverse proxy and overwrites protocol
   to HTTPS for correct URL generation behind the tunnel.
 - Syncthing UI is internal-only over Tailscale; `22000` is its sync transport.
+- MeTube (yt-dlp web UI) is internal-only over Tailscale — it has no built-in
+  auth of its own, so it isn't put behind the Cloudflare tunnel like the other
+  services here. Downloaded files land in `/data/metube`, owned UID/GID 1000
+  to match the container's `UID`/`GID` env vars.
 
 ---
 

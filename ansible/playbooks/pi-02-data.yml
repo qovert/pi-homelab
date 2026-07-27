@@ -28,6 +28,12 @@
         state: restarted
         daemon_reload: true
 
+    - name: restart metube
+      ansible.builtin.systemd:
+        name: metube.service
+        state: restarted
+        daemon_reload: true
+
   tasks:
     # --- Nextcloud ---
     - name: Deploy Nextcloud network unit
@@ -247,6 +253,31 @@
     - name: Enable and start Vaultwarden
       ansible.builtin.systemd:
         name: vaultwarden.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # --- MeTube ---
+    - name: Deploy MeTube container unit
+      ansible.builtin.template:
+        src: ../templates/metube/metube.container.j2
+        dest: /etc/containers/systemd/metube.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart metube
+
+    - name: Create MeTube downloads directory
+      ansible.builtin.file:
+        path: "{{ storage.data_dir }}/metube"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: "0750"
+
+    - name: Enable and start MeTube
+      ansible.builtin.systemd:
+        name: metube.service
         state: started
         enabled: true
         daemon_reload: true

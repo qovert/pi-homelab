@@ -26,3 +26,5 @@ compose_projects:
     dir: /opt/syncthing
   - name: vaultwarden
     dir: /opt/vaultwarden
+  - name: metube
+    dir: /opt/metube

@@ -1,0 +1,17 @@
+[Unit]
+Description=MeTube
+After=network-online.target local-fs.target
+
+[Container]
+Image=ghcr.io/alexta69/metube:latest
+ContainerName=metube
+Environment=UID=1000
+Environment=GID=1000
+Volume={{ storage.data_dir }}/metube:/downloads
+PublishPort=8083:8081
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
