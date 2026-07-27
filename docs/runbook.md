@@ -1,7 +1,8 @@
 # Operations Runbook
 
 Task-oriented procedures for running the lab. For the lookup table of what runs
-where, see [services.md](services.md).
+where, see [services.md](services.md). For OS/container updates across the
+fleet, see [update-procedure.md](update-procedure.md).
 
 **Conventions**
 - The Ansible control node is `pi-fw` itself (`ansible_connection: local`); run

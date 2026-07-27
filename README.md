@@ -134,6 +134,8 @@ run before each snapshot. A systemd timer drives the schedule.
   where, ports, data paths, public hostname map).
 - [docs/runbook.md](docs/runbook.md) — task-oriented operations runbook (backups
   and restore, node recovery, infrastructure changes, service gotchas).
+- [docs/update-procedure.md](docs/update-procedure.md) — OS/container update
+  plan for the fleet: order, per-node steps, and known caveats.
 - [plan.md](plan.md) — original architecture plan.
 
 ## License
