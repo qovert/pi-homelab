@@ -5,6 +5,10 @@ After=network-online.target local-fs.target
 [Container]
 Image=ghcr.io/gethomepage/homepage:latest
 ContainerName=homepage
+# Config dir is on NFS (root_squash) — the image defaults to root, which gets
+# squashed to an anonymous UID with no access to the admin-owned (750) dir.
+# Pin to UID 1000 (admin) to match, same pattern as uptime-kuma.
+User=1000:1000
 Volume={{ storage.data_dir }}/homepage:/app/config
 PublishPort=3000:3000
 

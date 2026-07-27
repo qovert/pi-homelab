@@ -268,7 +268,17 @@
         path: "{{ storage.data_dir }}"
         src: "{{ inventory_hosts.pi_nas }}:{{ storage.data_dir }}/nfs/pi-03"
         fstype: nfs
-        opts: defaults,noatime,_netdev
+        # x-systemd.automount defers the actual mount to first access instead of
+        # boot time, so a mass reboot where pi-nas isn't up yet doesn't leave
+        # data.mount permanently failed (and everything depending on it dead)
+        # until the next manual intervention -- this happened for real on
+        # 2026-06-13 and took kavita/homepage/blog down for over a month.
+        # No _netdev here: it pulls the mount into remote-fs.target's eager
+        # boot-time chain regardless of automount, which defeats the laziness
+        # and reproduces the exact same race (confirmed live on pi-03 on
+        # 2026-07-26 -- automount alone, without _netdev, is what actually
+        # holds across a reboot).
+        opts: defaults,noatime,x-systemd.automount,x-systemd.idle-timeout=0
         state: mounted
 
     - name: Create quadlets directory
@@ -377,7 +387,7 @@
         path: "{{ storage.data_dir }}"
         src: "{{ inventory_hosts.pi_nas }}:{{ storage.data_dir }}/nfs/{{ inventory_hostname }}"
         fstype: nfs
-        opts: defaults,noatime,_netdev
+        opts: defaults,noatime,x-systemd.automount,x-systemd.idle-timeout=0
         state: mounted
 
 

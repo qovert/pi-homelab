@@ -56,6 +56,13 @@
         name: "{{ item }}"
         value: "1"
         state: present
+        # Default sysctl_file is /etc/sysctl.conf -- current systemd-sysctl
+        # no longer applies that legacy path at boot (confirmed live on
+        # pi-fw 2026-07-27: value was correctly in /etc/sysctl.conf but
+        # read back as 0 after a reboot), silently breaking all LAN subnet
+        # routing until the next manual `sysctl --system`. Write to a real
+        # sysctl.d file instead so it actually persists across reboots.
+        sysctl_file: /etc/sysctl.d/99-ip-forward.conf
         sysctl_set: true
         reload: true
       loop:
