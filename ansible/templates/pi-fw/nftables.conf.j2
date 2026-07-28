@@ -6,6 +6,23 @@ flush ruleset
 define WAN = {{ pi_fw_wan_iface }}
 define LAN = {{ pi_fw_lan_iface }}
 define LAB  = {{ networking.lab_cidr }}
+define IVPN = "wg-ivpn"
+define TS_CGNAT = 100.64.0.0/10
+
+# LAN-sourced packets get marked here (except anything destined for
+# Tailscale's CGNAT range) so they're policy-routed via wg-ivpn instead of
+# the main table's default WAN route. The exclusion is destination-based
+# so it's correct for both directions of a Tailscale-routed flow -- without
+# it, a LAN server's replies to a Tailscale-connected admin session would
+# get shoved into the VPN tunnel instead of out tailscale0, breaking
+# remote access mid-session.
+table inet mangle {
+  chain prerouting {
+    type filter hook prerouting priority mangle; policy accept;
+
+    iifname $LAN ip daddr != $TS_CGNAT meta mark set {{ services.ivpn.fwmark }}
+  }
+}
 
 table inet filter {
   chain input {
@@ -44,8 +61,12 @@ table inet filter {
     ct state established,related accept
     ct state invalid drop
 
-    # Lab → WAN
-    iifname $LAN oifname $WAN accept
+    # Lab → IVPN only. This is the binding fail-closed guarantee: even if
+    # the routing layer ever falls through to the main table's WAN default
+    # route (e.g. table {{ services.ivpn.table }} empty for a moment), this
+    # chain has no rule accepting LAN traffic with oifname $WAN anymore, and
+    # the default policy is drop -- so it dies here regardless.
+    iifname $LAN oifname $IVPN accept
 
     # Tailscale subnet routing: remote clients ↔ lab
     iifname "tailscale0" oifname $LAN accept
@@ -64,6 +85,6 @@ table inet nat {
   chain postrouting {
     type nat hook postrouting priority 100; policy accept;
 
-    iifname $LAN oifname $WAN masquerade
+    iifname $LAN oifname $IVPN masquerade
   }
 }

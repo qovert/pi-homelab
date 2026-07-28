@@ -60,6 +60,17 @@ services:
     fqdn: "status.{{ lab.domain }}"
   vaultwarden:
     fqdn: "vault.{{ lab.domain }}"
+  # Split-tunnel VPN egress for LAN clients on pi-fw (optional). Generate a
+  # WireGuard config from your VPN provider, pick one server/endpoint, and
+  # fill in its Peer section + DNS resolver here. Private key + tunnel
+  # address are secrets (vault.ivpn) -- see vault.example.yml.
+  ivpn:
+    server: CHANGE_ME_IVPN_SERVER          # e.g. us-ash-us-va1
+    peer_public_key: CHANGE_ME_IVPN_PEER_PUBLIC_KEY
+    endpoint: CHANGE_ME_IVPN_ENDPOINT      # host:port
+    dns: CHANGE_ME_IVPN_DNS
+    fwmark: "0x1"
+    table: 200
   homelabbot:
     rocketchat_url: "https://{{ services.rocketchat.fqdn }}"
     channel_name: general

@@ -1,0 +1,15 @@
+# Managed by Ansible — do not edit manually
+#
+# Deliberately NOT ordered after network-online.target or
+# wg-quick@wg-ivpn.service -- this needs to run and successfully alert
+# precisely when those are broken, so gating on either would defeat the
+# purpose. Only needs LAN reachability to Rocket.Chat's own IP.
+
+[Unit]
+Description=IVPN tunnel killswitch monitor
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ivpn-monitor.env
+ExecStart=/usr/local/bin/ivpn-monitor

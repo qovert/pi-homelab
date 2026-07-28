@@ -1,0 +1,28 @@
+# Managed by Ansible — do not edit manually
+#
+# The stock wg-quick@.service unit has no Restart= at all -- a transient
+# failure on first boot (e.g. WAN not fully stable yet, even though
+# network-online.target was satisfied) leaves it permanently `failed`
+# until someone manually restarts it. For a killswitch, "keep retrying
+# forever" is the correct failure mode: until the tunnel comes up, LAN
+# has zero egress rather than a leak, which is still fail-closed but
+# doesn't require an operator to notice and intervene.
+#
+# ExecStartPre installs the permanent blackhole route in table
+# {{ services.ivpn.table }} independent of wg-quick's own lifecycle, so a
+# routing lookup fails explicitly ("unreachable") instead of silently
+# falling through to the main table's default route via WAN if the real
+# route (installed by wg-ivpn.conf.j2's PostUp) ever disappears. Runs on
+# every start attempt including retries; `ip route replace` is a no-op
+# the 2nd+ time.
+
+[Unit]
+After=NetworkManager-wait-online.service
+Wants=NetworkManager-wait-online.service
+StartLimitIntervalSec=0
+
+[Service]
+ExecStartPre=/bin/sh -c 'ip rule add fwmark {{ services.ivpn.fwmark }} table {{ services.ivpn.table }} priority 100 2>/dev/null || true'
+ExecStartPre=/bin/sh -c 'ip route replace blackhole default table {{ services.ivpn.table }} metric 32764'
+Restart=on-failure
+RestartSec=5s

@@ -7,9 +7,10 @@ domain-needed
 bogus-priv
 no-resolv
 
-# Upstream DNS
-server=1.1.1.1
-server=1.0.0.1
+# Upstream DNS — IVPN's resolver only, reachable via wg-ivpn's PostUp host
+# route. Deliberately no fallback: a fallback would leak DNS around the
+# tunnel if it's down, defeating the fail-closed intent.
+server={{ services.ivpn.dns }}
 
 # Local domain — never forward lab.{{ lab.domain }} queries upstream
 local=/lab.{{ lab.domain }}/

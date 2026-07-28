@@ -1,0 +1,33 @@
+# Managed by Ansible — do not edit manually
+
+[Interface]
+PrivateKey = {{ vault.ivpn.private_key }}
+Address = {{ vault.ivpn.address }}
+# Table = off: wg-quick's default (Table = auto) would install its own
+# full default-route takeover of the main table since AllowedIPs is
+# 0.0.0.0/0 -- that would route pi-fw's own traffic (SSH, Tailscale
+# control plane, cloudflared, apt) through the tunnel too, which breaks
+# the whole point of this being a split tunnel. Table 200 is managed
+# entirely by hand below.
+Table = off
+# No DNS = line here on purpose -- that would make wg-quick try to manage
+# /etc/resolv.conf itself (via resolvconf/systemd-resolved), conflicting
+# with dnsmasq forwarding to services.ivpn.dns. dnsmasq is the only DNS
+# mechanism in play.
+# No SaveConfig -- with it true, `wg-quick down` rewrites this file with
+# live runtime state, clobbering what Ansible templated.
+
+# ip rule/ip route replace throughout so these are idempotent even after
+# an unclean kill (not just a graceful `wg-quick down`) -- `ip rule` has
+# no `replace` equivalent, hence `|| true` there specifically.
+PostUp = ip rule add fwmark {{ services.ivpn.fwmark }} table {{ services.ivpn.table }} priority 100 2>/dev/null || true
+PostUp = ip route replace default dev wg-ivpn table {{ services.ivpn.table }} metric 1
+PostUp = ip route replace {{ services.ivpn.dns }}/32 dev wg-ivpn
+PostDown = ip route del {{ services.ivpn.dns }}/32 dev wg-ivpn 2>/dev/null || true
+PostDown = ip rule del fwmark {{ services.ivpn.fwmark }} table {{ services.ivpn.table }} priority 100 2>/dev/null || true
+
+[Peer]
+PublicKey = {{ services.ivpn.peer_public_key }}
+AllowedIPs = 0.0.0.0/0,::/0
+Endpoint = {{ services.ivpn.endpoint }}
+PersistentKeepalive = 25

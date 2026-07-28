@@ -17,7 +17,24 @@
           - vault.cloudflare.tunnel_token is not search('CHANGE_ME')
         fail_msg: Fill vault.cloudflare.tunnel_token in vault.yml before running this playbook.
 
+    - name: Verify IVPN private key is set
+      ansible.builtin.assert:
+        that:
+          - vault.ivpn.private_key is not search('CHANGE_ME')
+        fail_msg: Fill vault.ivpn.private_key in vault.yml before running this playbook.
+
   tasks:
+    # Rocket.Chat webhook is supplementary alerting, not core VPN function --
+    # warn rather than hard-fail, since creating it requires a manual
+    # one-time step in Rocket.Chat's admin UI (see runbook.md).
+    - name: Warn if Rocket.Chat webhook for IVPN monitoring is not configured
+      ansible.builtin.debug:
+        msg: >-
+          vault.monitoring.rocketchat_webhook_url is still CHANGE_ME --
+          ivpn-monitor will run but killswitch alerts won't actually be
+          delivered until this is set.
+      when: vault.monitoring.rocketchat_webhook_url is search('CHANGE_ME')
+
     - name: Configure WAN interface to ignore upstream DNS
       community.general.nmcli:
         conn_name: "{{ pi_fw_wan_iface }}"
@@ -69,6 +86,49 @@
         - net.ipv4.ip_forward
         - net.ipv6.conf.all.forwarding
 
+    - name: Install WireGuard
+      ansible.builtin.apt:
+        name: wireguard-tools
+        state: present
+        update_cache: true
+
+    - name: Deploy wg-ivpn WireGuard config
+      ansible.builtin.template:
+        src: ../templates/pi-fw/wg-ivpn.conf.j2
+        dest: /etc/wireguard/wg-ivpn.conf
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      notify: restart wg-quick
+
+    - name: Create wg-quick@wg-ivpn systemd drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/wg-quick@wg-ivpn.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy wg-quick@wg-ivpn systemd override
+      ansible.builtin.template:
+        src: ../templates/pi-fw/wg-quick-wg-ivpn-override.conf.j2
+        dest: /etc/systemd/system/wg-quick@wg-ivpn.service.d/override.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart wg-quick
+
+    - name: Enable and start wg-quick@wg-ivpn
+      ansible.builtin.systemd:
+        name: wg-quick@wg-ivpn
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # Deploy the tunnel before the nftables cutover below (which restricts
+    # LAN forwarding to oifname wg-ivpn only) to minimize the live-outage
+    # window on first apply.
     - name: Install nftables and dnsmasq
       ansible.builtin.apt:
         name:
@@ -114,8 +174,8 @@
         dest: /etc/systemd/system/dnsmasq.service.d/wait-for-network.conf
         content: |
           [Unit]
-          After=network-online.target tailscaled.service
-          Wants=network-online.target tailscaled.service
+          After=network-online.target tailscaled.service wg-quick@wg-ivpn.service
+          Wants=network-online.target tailscaled.service wg-quick@wg-ivpn.service
         owner: root
         group: root
         mode: "0644"
@@ -198,6 +258,46 @@
         enabled: true
         daemon_reload: true
 
+    - name: Deploy ivpn-monitor script
+      ansible.builtin.template:
+        src: ../templates/pi-fw/ivpn-monitor.sh.j2
+        dest: /usr/local/bin/ivpn-monitor
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Deploy ivpn-monitor env file
+      ansible.builtin.template:
+        src: ../templates/pi-fw/ivpn-monitor.env.j2
+        dest: /etc/ivpn-monitor.env
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: Deploy ivpn-monitor systemd service
+      ansible.builtin.template:
+        src: ../templates/pi-fw/ivpn-monitor.service.j2
+        dest: /etc/systemd/system/ivpn-monitor.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Deploy ivpn-monitor systemd timer
+      ansible.builtin.template:
+        src: ../templates/pi-fw/ivpn-monitor.timer.j2
+        dest: /etc/systemd/system/ivpn-monitor.timer
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable and start ivpn-monitor timer
+      ansible.builtin.systemd:
+        name: ivpn-monitor.timer
+        state: started
+        enabled: true
+        daemon_reload: true
+
   handlers:
     - name: nmcli up wan
       ansible.builtin.command:
@@ -223,3 +323,9 @@
       ansible.builtin.systemd:
         name: cloudflared
         state: restarted
+
+    - name: restart wg-quick
+      ansible.builtin.systemd:
+        name: wg-quick@wg-ivpn
+        state: restarted
+        daemon_reload: true

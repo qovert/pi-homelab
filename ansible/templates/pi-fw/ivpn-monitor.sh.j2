@@ -1,0 +1,43 @@
+#!/bin/bash
+# Managed by Ansible — do not edit manually
+#
+# Checks WireGuard handshake freshness for wg-ivpn and alerts on state
+# CHANGE only (not every tick) via a Rocket.Chat incoming webhook, posted
+# directly to Rocket.Chat's LAN IP so the alert path depends on nothing
+# but the LAN link and Rocket.Chat itself -- not DNS, the tunnel, or
+# Cloudflare, all of which may be exactly what's broken when this fires.
+set -u
+
+STATE_DIR=/var/lib/ivpn-monitor
+STATE_FILE="$STATE_DIR/state"
+STALE_THRESHOLD=220  # seconds; WireGuard's own rekey interval is ~120s
+
+mkdir -p "$STATE_DIR"
+
+# Guarded explicitly: `wg show` exits non-zero when the interface doesn't
+# exist at all, which is exactly the case most worth detecting -- must
+# not let that abort the script before it reaches the alerting logic.
+handshake=$(wg show wg-ivpn latest-handshakes 2>/dev/null | awk '{print $2}')
+now=$(date +%s)
+
+current_status=down
+if [ -n "$handshake" ] && [ "$handshake" -gt 0 ] 2>/dev/null; then
+  if [ $(( now - handshake )) -le "$STALE_THRESHOLD" ]; then
+    current_status=up
+  fi
+fi
+
+last_status=""
+[ -f "$STATE_FILE" ] && last_status=$(cat "$STATE_FILE")
+
+if [ "$current_status" != "$last_status" ]; then
+  if [ "$current_status" = "down" ]; then
+    message="IVPN tunnel DOWN on pi-fw -- LAN egress is blocked (fail-closed killswitch active)."
+  else
+    message="IVPN tunnel RECOVERED on pi-fw -- LAN egress restored."
+  fi
+  curl -sf -m 10 -X POST -H 'Content-Type: application/json' \
+    -d "{\"text\": \"$message\"}" \
+    "$ROCKETCHAT_WEBHOOK_URL" >/dev/null 2>&1 || true
+  echo "$current_status" > "$STATE_FILE"
+fi
