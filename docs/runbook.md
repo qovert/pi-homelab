@@ -271,6 +271,83 @@ are gitignored, with `.example.yml` templates committed.
   since the symptom otherwise is just "the whole LAN is unreachable from the
   tailnet" with no obvious cause.
 
+### IVPN split-tunnel + killswitch (pi-fw)
+
+Added 2026-07-29. All LAN client traffic (every LAN client is a server, no
+segregation needed) is policy-routed through a `wg-ivpn` WireGuard interface
+to IVPN, fail-closed if the tunnel drops. See `services.md`'s pi-fw section
+for the architecture summary. Design + implementation went through an
+independent review before deployment, which caught two mistakes before
+anything was built:
+
+- Packet marking that didn't exclude Tailscale's CGNAT range would have
+  hijacked a LAN server's replies to a Tailscale-connected admin session
+  into the tunnel instead of out `tailscale0`, breaking remote access
+  mid-session (fixed: destination-based exclusion of `100.64.0.0/10` in the
+  mangle rule).
+- A missing `Table = off` in the WireGuard config would have let `wg-quick`
+  silently take over pi-fw's entire main routing table (its default
+  behavior when `AllowedIPs = 0.0.0.0/0` is set), routing pi-fw's own
+  traffic through the tunnel too.
+
+**A third, more subtle bug only surfaced during the actual reboot test**,
+despite the design review and full pre-reboot verification passing cleanly:
+
+- **A `table inet mangle` chain registered at exactly `priority mangle`
+  (nftables' named constant, -150) breaks `tailscaled`'s own SNAT setup for
+  subnet-routed traffic, but only once `tailscaled` (re)starts with that
+  ruleset already active.** Symptom: Tailscale-routed admin access to every
+  LAN server except pi-fw itself stops working — `pi-fw` itself stays fully
+  reachable throughout, which is what made this confusing at first (it
+  looked like a Tailscale-client-side issue, not a pi-fw config problem).
+  Packet capture showed the SYN reaching the LAN server fine (source
+  correctly rewritten to pi-fw's own IP, normal Tailscale SNAT behavior),
+  but the reply never made it back through `tailscale0`.
+  - Isolated with a clean binary test: revert to the pre-IVPN ruleset →
+    works; reapply the new ruleset → **still works**, right up until
+    `tailscaled` restarts, at which point it breaks. This is exactly why it
+    didn't show up during initial deploy (tailscaled was already running)
+    but did after a real reboot (tailscaled starts fresh, after the new
+    ruleset is already loaded).
+  - Fix: move the mangle table's hook to a plain `priority -1` instead of
+    the named `mangle` constant. Still early enough (pre-routing-decision)
+    for policy routing to work correctly, but no longer at whatever
+    specific priority value `tailscaled`'s own netfilter setup is sensitive
+    to. **Do not change this back to `priority mangle` without re-testing
+    a real reboot** — it will look completely fine until the next
+    `tailscaled` restart.
+  - If Tailscale-to-LAN access ever breaks again after touching this
+    ruleset: check `sudo nft list ruleset` for `table ip filter`/`table ip
+    nat` (tailscaled's own tables, managed via `iptables-nft`, separate
+    from this repo's `inet`-family tables) — `tcpdump -i tailscale0` vs
+    `tcpdump -i eth2` for the same host during a connection attempt will
+    show whether the packet is even leaving pi-fw's LAN interface, which is
+    the fastest way to tell "Tailscale mesh issue" from "pi-fw forwarding
+    issue."
+- **Verification actually performed** (this repo's standard: a fix isn't
+  done until reboot-tested, not just live-config-reviewed): two real
+  reboots of pi-fw (one caught the bug above, the second confirmed the
+  fix), a clean `systemctl stop wg-quick@wg-ivpn` (confirmed LAN egress
+  blocked, Tailscale access to both pi-fw and a LAN server stayed fully
+  functional, monitor alerted once on the state change), and an unclean
+  `ip link delete wg-ivpn` bypassing `wg-quick down`'s own cleanup entirely
+  (confirmed kernel auto-flushed the stale route, killswitch still held,
+  and a subsequent `systemctl restart` recovered with no `ip
+  rule`/`ip route` "File exists" errors).
+- **One-time manual step**: killswitch alerts need a Rocket.Chat incoming
+  webhook — **Administration → Integrations → Incoming Webhooks → New** in
+  Rocket.Chat, then put the generated URL in
+  `vault.monitoring.rocketchat_webhook_url`. The VPN and killswitch work
+  without this; it only gates whether alerts actually get delivered. Check
+  current status: `sudo systemctl status ivpn-monitor.timer` and
+  `cat /var/lib/ivpn-monitor/state` on pi-fw.
+- Testing the monitor script directly (`sudo /usr/local/bin/ivpn-monitor`)
+  will fail with `ROCKETCHAT_WEBHOOK_URL: unbound variable` unless you also
+  source `/etc/ivpn-monitor.env` first — the systemd service supplies this
+  via `EnvironmentFile=`, which a bare manual invocation bypasses. Use
+  `sudo systemctl start ivpn-monitor.service` to test it the way it
+  actually runs.
+
 ### Raspberry Pi Imager / cloud-init (any node)
 
 - Raspberry Pi OS ships `cloud-init` + `rpi-cloud-init-mods`. Imager's "Edit

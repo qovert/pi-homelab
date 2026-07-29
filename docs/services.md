@@ -15,12 +15,14 @@ Access (except the blog apex). Internal-only services are reached over Tailscale
 Router, firewall, DNS, and ingress. No containers; everything is native.
 Playbooks: `mikrotik.yml`, `pi-fw.yml`.
 
-| Service       | Type    | Listens                        | Exposure                        |
-|---------------|---------|--------------------------------|---------------------------------|
-| `nftables`    | native  | —                              | Firewall + NAT (LAN→WAN)        |
-| `dnsmasq`     | native  | LAN :53/:67, tailscale0 :53    | DHCP + `*.lab.bitrot.me` DNS for the VLAN and Tailscale clients |
-| `tailscaled`  | native  | —                              | Subnet router for `10.42.0.0/24`; exposes lab to tailnet |
-| `cloudflared` | native  | outbound only                  | Public tunnel for `bitrot.me`   |
+| Service         | Type    | Listens                        | Exposure                        |
+|-----------------|---------|--------------------------------|---------------------------------|
+| `nftables`      | native  | —                              | Firewall + NAT + LAN policy routing |
+| `dnsmasq`       | native  | LAN :53/:67, tailscale0 :53    | DHCP + `*.lab.bitrot.me` DNS for the VLAN and Tailscale clients |
+| `tailscaled`    | native  | —                              | Subnet router for `10.42.0.0/24`; exposes lab to tailnet |
+| `cloudflared`   | native  | outbound only                  | Public tunnel for `bitrot.me`   |
+| `wg-quick@wg-ivpn` | native | outbound only (IVPN, `us-ash-us-va1`) | Split-tunnel VPN egress for all LAN clients |
+| `ivpn-monitor.timer` | native | — (every 2 min)           | Killswitch health check, alerts via Rocket.Chat webhook |
 
 - WAN interface (`eth1`) takes DHCP from the upstream router but ignores DHCP-pushed
   DNS. LAN interface (`eth2`) is the gateway for the lab at `10.42.0.1` and feeds the
@@ -32,6 +34,32 @@ Playbooks: `mikrotik.yml`, `pi-fw.yml`.
 - **Tailscale split DNS:** to resolve `*.lab.bitrot.me` on Tailscale clients, add a
   custom nameserver for `lab.bitrot.me` pointing to `100.82.17.40` in the Tailscale
   admin console. The subnet route (`10.42.0.0/24`) must also be approved there.
+
+### IVPN split-tunnel + fail-closed killswitch
+
+All LAN client (server) traffic is policy-routed through a `wg-ivpn`
+WireGuard interface to IVPN — no exceptions, since every LAN client is a
+server, not a personal device. `pi-fw`'s own traffic (Tailscale, cloudflared,
+SSH, apt) stays on direct WAN, untouched, so remote admin access survives
+the tunnel being down. DNS forwards to IVPN's resolver only, no fallback —
+a fallback would leak DNS around a dead tunnel.
+
+- LAN packets get `meta mark set 0x1` in a `prerouting` hook (table
+  `inet mangle`), **excluding** anything destined for Tailscale's CGNAT
+  range (`100.64.0.0/10`) by destination — without that exclusion, a LAN
+  server's replies to a Tailscale-connected admin session get shoved into
+  the VPN tunnel instead of out `tailscale0`, breaking remote access
+  mid-session.
+- Fail-closed via two layers: the `forward` chain only accepts
+  `LAN → wg-ivpn` (never `LAN → WAN`, regardless of routing state — this is
+  the actual binding guarantee), plus a permanent `blackhole` default route
+  in table 200 (independent of `wg-quick`'s lifecycle) for diagnosability.
+- Verified with two real reboots, a clean tunnel stop, and an unclean
+  interface deletion (bypassing `wg-quick down`'s own cleanup) — all
+  recovered automatically with no leaks and no manual intervention needed.
+- Full design writeup, gotchas (including a real tailscaled/nftables
+  priority conflict found during testing), and the manual Rocket.Chat
+  webhook setup step: see [runbook.md](runbook.md#ivpn-split-tunnel--killswitch-pi-fw).
 
 ---
 
