@@ -41,4 +41,4 @@ vault:
     private_key: CHANGE_ME_IVPN_PRIVATE_KEY
     address: CHANGE_ME_IVPN_TUNNEL_ADDRESS   # from your WireGuard config's [Interface] Address=
   monitoring:
-    rocketchat_webhook_url: CHANGE_ME_ROCKETCHAT_WEBHOOK_URL   # optional; Administration > Integrations > Incoming Webhooks
+    rocketchat_webhook_path: CHANGE_ME_ROCKETCHAT_WEBHOOK_PATH   # optional; Administration > Integrations > Incoming Webhooks -- just the /hooks/... path, host is templated from inventory_hosts.pi_01
