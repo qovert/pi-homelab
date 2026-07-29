@@ -30,10 +30,10 @@
     - name: Warn if Rocket.Chat webhook for IVPN monitoring is not configured
       ansible.builtin.debug:
         msg: >-
-          vault.monitoring.rocketchat_webhook_url is still CHANGE_ME --
+          vault.monitoring.rocketchat_webhook_path is still CHANGE_ME --
           ivpn-monitor will run but killswitch alerts won't actually be
           delivered until this is set.
-      when: vault.monitoring.rocketchat_webhook_url is search('CHANGE_ME')
+      when: vault.monitoring.rocketchat_webhook_path is search('CHANGE_ME')
 
     - name: Configure WAN interface to ignore upstream DNS
       community.general.nmcli:
