@@ -16,9 +16,19 @@ define TS_CGNAT = 100.64.0.0/10
 # it, a LAN server's replies to a Tailscale-connected admin session would
 # get shoved into the VPN tunnel instead of out tailscale0, breaking
 # remote access mid-session.
+#
+# Priority is a plain -1, NOT the named "mangle" constant (-150). Confirmed
+# live on 2026-07-29: a table registered at exactly "priority mangle" here
+# breaks tailscaled's own SNAT setup for subnet-routed traffic the moment
+# tailscaled (re)starts with this ruleset already active -- reproduced
+# reliably (fresh reboot, and manually via `systemctl restart tailscaled`
+# with this ruleset loaded), and confirmed fixed by moving off the exact
+# "mangle" priority value while keeping the hook early enough (still
+# pre-routing-decision) for policy routing to work. Do not change this
+# back to "priority mangle" without re-testing a real reboot.
 table inet mangle {
   chain prerouting {
-    type filter hook prerouting priority mangle; policy accept;
+    type filter hook prerouting priority -1; policy accept;
 
     iifname $LAN ip daddr != $TS_CGNAT meta mark set {{ services.ivpn.fwmark }}
   }
