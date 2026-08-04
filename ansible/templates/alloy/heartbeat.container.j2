@@ -15,7 +15,12 @@ Wants=network-online.target
 # no Alloy config change needed for this to work.
 Image=docker.io/library/busybox:1.37
 ContainerName=heartbeat
-Exec=sh -c 'while true; do echo "heartbeat $(date -u +%FT%TZ)"; sleep 60; done'
+# %% (not %) -- Exec= is processed by systemd's own unit-file specifier
+# expansion before the container ever sees it, same class of bug as the
+# Grafana HealthCmd ${VAR} issue found earlier this session. A bare
+# %FT%TZ here is parsed as invalid specifiers ("bad unit file setting"),
+# not passed through to `date`'s format string -- confirmed live.
+Exec=sh -c 'while true; do echo "heartbeat $(date -u +%%FT%%TZ)"; sleep 60; done'
 
 [Service]
 Restart=always
