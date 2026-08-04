@@ -28,6 +28,12 @@
         state: restarted
         daemon_reload: true
 
+    - name: restart heartbeat
+      ansible.builtin.systemd:
+        name: heartbeat.service
+        state: restarted
+        daemon_reload: true
+
 
   tasks:
     # --- Kavita ---
@@ -172,6 +178,22 @@
     - name: Enable and start Alloy
       ansible.builtin.systemd:
         name: alloy.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    - name: Deploy heartbeat container unit
+      ansible.builtin.template:
+        src: ../templates/alloy/heartbeat.container.j2
+        dest: /etc/containers/systemd/heartbeat.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart heartbeat
+
+    - name: Enable and start heartbeat
+      ansible.builtin.systemd:
+        name: heartbeat.service
         state: started
         enabled: true
         daemon_reload: true

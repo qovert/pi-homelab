@@ -1,0 +1,24 @@
+[Unit]
+Description=Synthetic log heartbeat (pipeline-health signal, not app monitoring)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+# A guaranteed periodic log line, independent of any real app's own
+# traffic -- this host's other services (Kavita, Uptime Kuma, Homepage,
+# etc.) can legitimately go well past 3h with zero output during idle
+# stretches (confirmed live 2026-08-04: a "no logs in 3h" pipeline-health
+# alert fired on pi-03 while Alloy/podman/network were all genuinely
+# healthy, just because nothing had happened). discovery.docker in
+# templates/alloy/config.alloy.j2 is unfiltered, so this container's
+# output gets shipped through the exact same path as everything else --
+# no Alloy config change needed for this to work.
+Image=docker.io/library/busybox:1.37
+ContainerName=heartbeat
+Exec=sh -c 'while true; do echo "heartbeat $(date -u +%FT%TZ)"; sleep 60; done'
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
