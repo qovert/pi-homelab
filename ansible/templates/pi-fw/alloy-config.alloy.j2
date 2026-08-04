@@ -1,0 +1,21 @@
+// Managed by Ansible — do not edit manually
+//
+// pi-fw has no Podman/containers of its own to ship -- this instance only
+// receives pushes from pi-01..04 over the LAN (loki.source.api runs its own
+// Loki-push-API-compatible HTTP server) and re-forwards everything to
+// chimaera's Loki over Tailscale. Received entries already carry whatever
+// stream labels the origin Alloy set (host="pi-01" etc.), so nothing here
+// needs to re-label per-source.
+loki.source.api "from_pi_nodes" {
+  http {
+    listen_address = "0.0.0.0"   // nftables scopes real reachability to $LAN
+    listen_port     = {{ services.log_aggregation.port }}
+  }
+  forward_to = [loki.write.chimaera.receiver]
+}
+
+loki.write "chimaera" {
+  endpoint {
+    url = "http://{{ services.log_aggregation.chimaera_tailscale_ip }}:{{ services.log_aggregation.port }}/loki/api/v1/push"
+  }
+}

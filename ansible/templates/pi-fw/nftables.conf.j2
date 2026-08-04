@@ -60,6 +60,12 @@ table inet filter {
     # Tailscale control/data plane
     udp dport 41641 accept
 
+    # Alloy log-push receiver -- pi-01..04 push their container logs here
+    # over the LAN, then this host relays everything onward to chimaera's
+    # Loki over Tailscale. LAN-only: pi-fw's own outbound push to chimaera
+    # needs no inbound rule, and nothing outside the LAN pushes in here.
+    iifname $LAN tcp dport {{ services.log_aggregation.port }} accept
+
     # Log (rate-limited) and drop everything else
     limit rate 5/second burst 10 packets log prefix "nft-drop-input: " flags all
     drop

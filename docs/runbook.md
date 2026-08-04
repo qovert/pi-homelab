@@ -270,6 +270,18 @@ are gitignored, with `.example.yml` templates committed.
   being disabled when this regresses — that's the fastest way to notice it,
   since the symptom otherwise is just "the whole LAN is unreachable from the
   tailnet" with no obvious cause.
+- **`ansible.cfg`'s `inventory` setting must point at the specific
+  `inventory/hosts.yml` file, not the whole `inventory/` directory.**
+  Pointing at the directory makes Ansible's `yaml` inventory plugin scan
+  *every* `.yml` file under it (except `group_vars`/`host_vars`, which are
+  special-cased) as a potential inventory *source*, not just a vars file.
+  Confirmed live 2026-08-04: this swept up `inventory/examples/*.yml`,
+  whose top-level `inventory_hosts:` key got loosely parsed as a bogus
+  inventory group, shadowing the real `inventory_hosts` dict from
+  `group_vars` used in `ansible_host: "{{ inventory_hosts.pi_fw }}"`
+  templates. group_vars/host_vars auto-discovery still works fine pointed
+  at a single file within the directory — don't revert this to the bare
+  directory.
 
 ### IVPN split-tunnel + killswitch (pi-fw)
 
@@ -347,6 +359,40 @@ despite the design review and full pre-reboot verification passing cleanly:
   via `EnvironmentFile=`, which a bare manual invocation bypasses. Use
   `sudo systemctl start ivpn-monitor.service` to test it the way it
   actually runs.
+
+### Centralized log aggregation (pi-fw + pi-01..04)
+
+Added 2026-08-04. `pi-01`/`pi-02`/`pi-03`/`pi-04` each ship container logs
+to `pi-fw:3100` over the LAN via Alloy quadlets; `pi-fw` runs a native
+Alloy instance that relays everything to chimaera's Loki (the main
+homelab-consolidation stack) over Tailscale. See `services.md`'s pi-fw
+section for the architecture, and homelab-consolidation's
+`hosts/chimaera/README.md` for the receiving side (Tailscale bootstrap,
+and a real gotcha there about `tailscaled` defeating naive `filter`-table
+firewall rules).
+
+- **Grafana Alloy's config language uses `//` for comments, not `#`.**
+  Using `#` (matched this repo's usual `template.j2` header-comment style)
+  produces `illegal character U+0023 '#'` and the service crash-loops on
+  startup. Both `templates/pi-fw/alloy-config.alloy.j2` and
+  `templates/alloy/config.alloy.j2` use `//` — don't "fix" them back to
+  `#` to match other templates in this repo.
+- `podman.socket` was not enabled on any of pi-01..04 before this — the
+  Alloy quadlet's `Requires=podman.socket` will crash-loop without it.
+  Each playbook now enables it as a prerequisite task; if adding Alloy to
+  a future node, don't skip this.
+- If a pi-node is unreachable from the workstation via the
+  `10.42.0.0/24` subnet route (confirmed happened once with `pi-04` —
+  reachable and fully healthy when tested directly from `pi-fw`'s own LAN
+  interface, but 100% packet loss from the workstation, with no obvious
+  cause) — since `pi-fw` already has a synced clone of this repo and
+  `ansible-playbook` installed (needed for `pi-fw.yml`'s
+  `ansible_connection: local` requirement, see above), run the affected
+  node's playbook *from `pi-fw` as the controller* instead
+  (`ssh admin@pi-fw`, `cd ~/pi-homelab/ansible`,
+  `ansible-playbook playbooks/<node>.yml -l <node>`) rather than
+  troubleshooting the workstation-to-node path — it's LAN-local from
+  `pi-fw`'s side regardless of what's wrong with the longer path.
 
 ### Raspberry Pi Imager / cloud-init (any node)
 

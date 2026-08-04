@@ -71,6 +71,13 @@ services:
     dns: CHANGE_ME_IVPN_DNS
     fwmark: "0x1"
     table: 200
+  # Centralized log aggregation (optional). pi-fw relays pi-node container
+  # logs to an external Loki instance over Tailscale -- see
+  # docs/services.md for the full design. chimaera_tailscale_ip is filled
+  # in only after that external host joins the tailnet.
+  log_aggregation:
+    port: 3100
+    chimaera_tailscale_ip: CHANGE_ME_AFTER_CHIMAERA_JOINS_TAILNET
   homelabbot:
     rocketchat_url: "https://{{ services.rocketchat.fqdn }}"
     channel_name: general

@@ -3,6 +3,13 @@
   hosts: fw
   become: true
 
+  vars:
+    # Pinned so a fresh run doesn't silently pick up a new Alloy release --
+    # bump both together when upgrading (checksum from the release's
+    # SHA256SUMS asset).
+    alloy_version: "1.18.0"
+    alloy_arm64_sha256: "e20f8570628818a15192d34372839017a4c446269b5d96036ad976ebf7a7728a"
+
   pre_tasks:
     - name: Verify interface names are set
       ansible.builtin.assert:
@@ -34,6 +41,18 @@
           ivpn-monitor will run but killswitch alerts won't actually be
           delivered until this is set.
       when: vault.monitoring.rocketchat_webhook_path is search('CHANGE_ME')
+
+    # chimaera's tailnet IP isn't known until it actually joins the tailnet
+    # (a separate, manual, one-time bootstrap on that host) -- Alloy will
+    # still run and accept pushes from pi-01..04 with the placeholder in
+    # place, it just can't forward them on yet.
+    - name: Warn if chimaera's Tailscale IP is not yet configured
+      ansible.builtin.debug:
+        msg: >-
+          services.log_aggregation.chimaera_tailscale_ip is still
+          CHANGE_ME -- the log aggregator will accept pushes from pi-nodes
+          but can't forward them to chimaera's Loki until this is set.
+      when: services.log_aggregation.chimaera_tailscale_ip is search('CHANGE_ME')
 
     - name: Configure WAN interface to ignore upstream DNS
       community.general.nmcli:
@@ -298,6 +317,70 @@
         enabled: true
         daemon_reload: true
 
+    # Log aggregator: receives pushes from pi-01..04 over the LAN, forwards
+    # to chimaera's Loki over Tailscale. pi-fw has no Podman of its own, so
+    # this is a static binary + systemd unit like ivpn-monitor/cloudflared,
+    # not a container.
+    - name: Create Alloy directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+      loop:
+        - /etc/alloy
+        - /var/lib/alloy/data
+
+    - name: Download and verify Alloy binary
+      ansible.builtin.get_url:
+        url: "https://github.com/grafana/alloy/releases/download/v{{ alloy_version }}/alloy-linux-arm64.zip"
+        dest: /tmp/alloy-linux-arm64.zip
+        checksum: "sha256:{{ alloy_arm64_sha256 }}"
+        mode: "0644"
+
+    - name: Extract Alloy binary
+      ansible.builtin.unarchive:
+        src: /tmp/alloy-linux-arm64.zip
+        dest: /tmp
+        remote_src: true
+        creates: /tmp/alloy-linux-arm64
+
+    - name: Install Alloy binary
+      ansible.builtin.copy:
+        src: /tmp/alloy-linux-arm64
+        dest: /usr/local/bin/alloy
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+      notify: restart alloy
+
+    - name: Deploy Alloy config
+      ansible.builtin.template:
+        src: ../templates/pi-fw/alloy-config.alloy.j2
+        dest: /etc/alloy/config.alloy
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart alloy
+
+    - name: Deploy Alloy systemd unit
+      ansible.builtin.template:
+        src: ../templates/pi-fw/alloy.service.j2
+        dest: /etc/systemd/system/alloy.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart alloy
+
+    - name: Enable and start Alloy
+      ansible.builtin.systemd:
+        name: alloy
+        state: started
+        enabled: true
+        daemon_reload: true
+
   handlers:
     - name: nmcli up wan
       ansible.builtin.command:
@@ -327,5 +410,11 @@
     - name: restart wg-quick
       ansible.builtin.systemd:
         name: wg-quick@wg-ivpn
+        state: restarted
+        daemon_reload: true
+
+    - name: restart alloy
+      ansible.builtin.systemd:
+        name: alloy
         state: restarted
         daemon_reload: true

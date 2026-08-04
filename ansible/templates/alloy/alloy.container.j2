@@ -1,0 +1,18 @@
+[Unit]
+Description=Grafana Alloy (log shipping to pi-fw aggregator)
+After=network-online.target podman.socket
+Wants=network-online.target
+Requires=podman.socket
+
+[Container]
+Image=docker.io/grafana/alloy:v1.17.1
+ContainerName=alloy
+Volume=/etc/alloy/config.alloy:/etc/alloy/config.alloy:ro,Z
+Volume=/var/lib/alloy/data:/var/lib/alloy/data:Z
+Volume=/run/podman/podman.sock:/run/podman/podman.sock:ro
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -24,7 +24,10 @@ Remote client ──▶ Tailscale mesh ──┐       │
 DHCP lease from whatever upstream router it is plugged into, and a LAN interface
 that feeds the managed switch. It runs `nftables` (firewall + NAT), `dnsmasq`
 (DHCP + internal `.lab` DNS), `tailscale` (subnet router advertising the lab
-network), and `cloudflared` (the public tunnel). No containers run on `pi-fw`.
+network), `cloudflared` (the public tunnel), and `alloy` (log aggregator —
+receives container logs pushed by `pi-01`-`pi-04` over the LAN and relays
+them to an external Loki over Tailscale; see `docs/services.md`). No
+containers run on `pi-fw`.
 
 ### Nodes
 

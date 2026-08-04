@@ -23,6 +23,7 @@ Playbooks: `mikrotik.yml`, `pi-fw.yml`.
 | `cloudflared`   | native  | outbound only                  | Public tunnel for `bitrot.me`   |
 | `wg-quick@wg-ivpn` | native | outbound only (IVPN, `us-ash-us-va1`) | Split-tunnel VPN egress for all LAN clients |
 | `ivpn-monitor.timer` | native | — (every 2 min)           | Killswitch health check, alerts via Rocket.Chat webhook |
+| `alloy`         | native  | LAN :3100                      | Log aggregator: receives pushes from pi-01..04, relays to chimaera's Loki over Tailscale |
 
 - WAN interface (`eth1`) takes DHCP from the upstream router but ignores DHCP-pushed
   DNS. LAN interface (`eth2`) is the gateway for the lab at `10.42.0.1` and feeds the
@@ -60,6 +61,18 @@ a fallback would leak DNS around a dead tunnel.
 - Full design writeup, gotchas (including a real tailscaled/nftables
   priority conflict found during testing), and the manual Rocket.Chat
   webhook setup step: see [runbook.md](runbook.md#ivpn-split-tunnel--killswitch-pi-fw).
+
+### Centralized log aggregation
+
+pi-homelab stays independent of the main homelab's tailnet — only `pi-fw`
+bridges the two. `pi-01`/`pi-02`/`pi-03`/`pi-04` each run an Alloy quadlet
+shipping their container logs to `pi-fw:3100` over the LAN; `pi-fw` runs a
+native Alloy instance that receives those pushes and relays everything to
+chimaera's Loki over Tailscale (ACL-restricted to just this one path — see
+homelab-consolidation's `hosts/chimaera/README.md`). `pi-nas` (pure NFS
+server, no containers) and `pi-05` (no assigned role yet) are excluded for
+now; `pi-nas` would need a `loki.source.journal`-based config instead of
+`discovery.docker` if this is ever extended to it.
 
 ---
 

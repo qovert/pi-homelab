@@ -1,0 +1,33 @@
+// Managed by Ansible — do not edit manually
+//
+// Same shape already proven on chimaera/adamant in homelab-consolidation:
+// discovery.docker -> discovery.relabel (strip leading "/" from container
+// names) -> loki.source.docker -> loki.write. Pushes to pi-fw's aggregator
+// over the LAN, not directly to chimaera -- pi-fw is the only pi-homelab
+// node that bridges onto the tailnet.
+discovery.docker "containers" {
+  host = "unix:///run/podman/podman.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///run/podman/podman.sock"
+  targets    = discovery.relabel.containers.output
+  labels     = {host = "{{ inventory_hostname }}"}
+  forward_to = [loki.write.pi_fw.receiver]
+}
+
+loki.write "pi_fw" {
+  endpoint {
+    url = "http://{{ inventory_hosts.pi_fw }}:{{ services.log_aggregation.port }}/loki/api/v1/push"
+  }
+}

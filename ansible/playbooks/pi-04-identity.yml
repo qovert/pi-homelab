@@ -16,6 +16,12 @@
         state: restarted
         daemon_reload: true
 
+    - name: restart alloy
+      ansible.builtin.systemd:
+        name: alloy.service
+        state: restarted
+        daemon_reload: true
+
   tasks:
     - name: Deploy identity network unit
       ansible.builtin.template:
@@ -114,6 +120,49 @@
     - name: Enable and start Authelia
       ansible.builtin.systemd:
         name: authelia.service
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    # --- Alloy (log shipping to pi-fw aggregator) ---
+    - name: Enable podman.socket
+      ansible.builtin.systemd:
+        name: podman.socket
+        state: started
+        enabled: true
+
+    - name: Create Alloy directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+      loop:
+        - /etc/alloy
+        - /var/lib/alloy/data
+
+    - name: Deploy Alloy config
+      ansible.builtin.template:
+        src: ../templates/alloy/config.alloy.j2
+        dest: /etc/alloy/config.alloy
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart alloy
+
+    - name: Deploy Alloy container unit
+      ansible.builtin.template:
+        src: ../templates/alloy/alloy.container.j2
+        dest: /etc/containers/systemd/alloy.container
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart alloy
+
+    - name: Enable and start Alloy
+      ansible.builtin.systemd:
+        name: alloy.service
         state: started
         enabled: true
         daemon_reload: true

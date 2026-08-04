@@ -92,6 +92,15 @@ sudo apt list --upgradable 2>/dev/null | grep -v '^Listing'   # should be blank
   this from: `ssh admin@10.42.0.11 hostname` (or any other node) should
   succeed. Also check `sudo tailscale status` for the IP-forwarding
   health-check warning line — it disappears once forwarding is genuinely on.
+  Confirm `sudo systemctl status alloy` came back too — like `cloudflared`
+  and `tailscale`, it's a pinned native binary (`alloy_version` in
+  `pi-fw.yml`), not a container image, so the "pull fresh images" step
+  above never touches it; bump the version/checksum vars manually and
+  re-run the playbook if a newer Alloy release is wanted.
+- **pi-01/02/03/04**: confirm `sudo systemctl status podman.socket alloy`
+  came back active — `alloy` depends on `podman.socket` via
+  `Requires=`, so a socket that doesn't come up on boot will crash-loop
+  the container.
 
 ## The one rule that matters most
 
