@@ -557,14 +557,15 @@ sections for the full incident writeup.
 
 ### Blog (Hugo)
 
-- Source repo is cloned to `/opt/blog/source`; the `blog-build` systemd timer
-  pulls and rebuilds into `/data/blog/public`, which nginx serves on `:8090`.
-- Force a rebuild:
-  ```bash
-  sudo /usr/local/bin/blog-build
-  ```
-- The PaperMod theme is a git submodule — clones use `recursive: true` and the
-  build script runs `git submodule update --init --recursive`.
+**No longer runs on any Pi.** Moved to Cloudflare Pages 2026-06-13 —
+`.github/workflows/blog-deploy.yml` builds Hugo and deploys on every push
+to `blog/` in this repo; `bitrot.me` is served directly by Cloudflare, not
+through the tunnel. The Ansible removal happened cleanly at the time, but
+the live `blog`/`blog-build` units on `pi-03` were never actually stopped
+— found and cleaned up 2026-08-06, two months later. If this ever
+recurs (an Ansible removal that doesn't get applied to the live host),
+check `systemctl list-unit-files` against what the current playbooks
+actually deploy, don't assume a clean `git log` means the fleet matches.
 
 ### arm64 image availability
 

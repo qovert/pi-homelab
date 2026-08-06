@@ -36,7 +36,7 @@ containers run on `pi-fw`.
 | `pi-fw`  | Pi 5 + [dual 2.5GbE HAT](https://docs.radxa.com/en/accessories/network/dual-2.5-router-hat)          | SD                       | Router, firewall, DNS, Tailscale, Cloudflare    |
 | `pi-01`  | Pi 5                            | NVMe                     | Comms: Rocket.Chat, HomelabBot                  |
 | `pi-02`  | Pi 5                            | NVMe                     | Data: Nextcloud, Miniflux, Syncthing, Vaultwarden, MeTube |
-| `pi-03`  | Pi 4                            | NFS from `pi-nas`        | Utility: Kavita, Uptime Kuma, Homepage, blog    |
+| `pi-03`  | Pi 4                            | NFS from `pi-nas`        | Utility: Kavita, Uptime Kuma, Homepage    |
 | `pi-04`  | Pi 4                            | Local SD (not NFS)       | Identity: Authelia (OIDC) + LLDAP; fallback Ansible control node |
 | `pi-05`  | Pi 4                            | NFS from `pi-nas`        | Spare — bootstrapped only, no service role assigned yet |
 | `pi-nas` | Pi 5 + [Radxa Penta SATA HAT](https://docs.radxa.com/en/accessories/storage/penta-sata-hat)     | 4× SATA SSD, btrfs RAID-10 | NFS server for the Pi 4 nodes                  |
@@ -87,8 +87,10 @@ ansible/
     pi-01-comms.yml, pi-02-data.yml, pi-03-utility.yml, pi-04-identity.yml, pi-nas.yml
     # pi-05 (spare) is bootstrapped only, via 00-bootstrap.yml's pi4_nodes group play
   templates/                      # quadlets, systemd units, service configs
-blog/                             # Hugo source for bitrot.me (PaperMod)
-plan.md                           # original architecture plan
+blog/                             # Hugo source for bitrot.me (PaperMod) --
+                                   # built and deployed to Cloudflare Pages via
+                                   # .github/workflows/blog-deploy.yml, not
+                                   # served from any Pi (moved 2026-06-13)
 ```
 
 ## Usage
@@ -139,7 +141,6 @@ run before each snapshot. A systemd timer drives the schedule.
   and restore, node recovery, infrastructure changes, service gotchas).
 - [docs/update-procedure.md](docs/update-procedure.md) — OS/container update
   plan for the fleet: order, per-node steps, and known caveats.
-- [plan.md](plan.md) — original architecture plan.
 
 ## License
 

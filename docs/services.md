@@ -6,7 +6,9 @@ quadlets under `/etc/containers/systemd/`; `pi-fw` runs native systemd units.
 
 Addresses are the static VLAN 10 reservations (`10.42.0.0/24`). Public hostnames
 are served through the Cloudflare Tunnel on `pi-fw` and gated by Cloudflare
-Access (except the blog apex). Internal-only services are reached over Tailscale.
+Access, except `auth.bitrot.me` (the IdP itself, can't sit behind its own
+gate) and `bitrot.me` (the blog apex, not tunnel-routed at all — see
+below). Internal-only services are reached over Tailscale.
 
 ---
 
@@ -74,6 +76,14 @@ server, no containers) and `pi-05` (no assigned role yet) are excluded for
 now; `pi-nas` would need a `loki.source.journal`-based config instead of
 `discovery.docker` if this is ever extended to it.
 
+Each of `pi-01`/`pi-02`/`pi-03`/`pi-04` also runs a `heartbeat` quadlet
+(busybox, one log line/60s) alongside Alloy — a synthetic signal so
+chimaera's Grafana can alert on "this node's log pipeline went silent"
+without false-positiving on real services that legitimately produce zero
+output for hours (the original per-host-log-volume design did exactly
+that on `pi-03` before being replaced). See homelab-consolidation's
+`docs/architecture.md` Monitoring Stack section for the alerting side.
+
 ---
 
 ## pi-01 — 10.42.0.11 (comms)
@@ -85,6 +95,8 @@ NVMe storage. Playbook: `pi-01-comms.yml`.
 | Rocket.Chat        | `rocketchat`       | 3000                                 | `chat.bitrot.me`   | (in MongoDB)                 |
 | MongoDB            | `rocketchat-mongo` | internal (`rocketchat-net`)          | —                  | `/data/rocketchat/mongodb`   |
 | HomelabBot         | `homelabbot`       | internal                             | — (deferred)       | `/opt/homelabbot`            |
+| Alloy              | `alloy`            | internal                             | —                  | —                             |
+| Heartbeat          | `heartbeat`        | internal                             | —                  | —                             |
 
 - MongoDB runs as a single-node replica set (`rs0`); the replica host must be
   `rocketchat-mongo:27017`. Admin login is `ditto` / `ADMIN_PASS` from
@@ -127,6 +139,8 @@ NVMe storage. Playbook: `pi-02-data.yml`.
 | Syncthing         | `syncthing`        | 8384 (UI), 22000, 21027| — (Tailscale)     | `/data/syncthing`            |
 | Vaultwarden       | `vaultwarden`      | 8082 → 80              | `vault.bitrot.me` | `/data/vaultwarden`          |
 | MeTube            | `metube`           | 8083 → 8081            | — (Tailscale)     | `/data/metube`               |
+| Alloy             | `alloy`            | internal               | —                 | —                             |
+| Heartbeat         | `heartbeat`        | internal               | —                 | —                             |
 
 - Postgres data dirs must be owned by **UID 70** (`postgres:16-alpine`).
 - Nextcloud trusts `pi-fw` (10.42.0.1) as a reverse proxy and overwrites protocol
@@ -148,11 +162,16 @@ Pi 4. `/data` is NFS-mounted from `pi-nas`. Playbook: `pi-03-utility.yml`.
 | Kavita        | `kavita`       | 5000         | `books.bitrot.me`   | `/data/kavita/{library,config}` |
 | Uptime Kuma   | `uptime-kuma`  | 3001         | `status.bitrot.me`  | `/data/uptime-kuma`        |
 | Homepage      | `homepage`     | 3000         | — (Tailscale)       | `/data/homepage`           |
-| Blog (nginx)  | `blog`         | 8090 → 80    | `bitrot.me` (apex)  | `/data/blog/public`        |
+| Alloy         | `alloy`        | internal     | —                    | —                          |
+| Heartbeat     | `heartbeat`    | internal     | —                    | —                          |
 
-- The blog is a Hugo static site (PaperMod theme). A systemd timer
-  (`blog-build`) polls the source repo and rebuilds into `/data/blog/public`;
-  nginx serves the output. Source is cloned to `/opt/blog/source`.
+- **The blog no longer runs here.** Moved to Cloudflare Pages 2026-06-13
+  (`.github/workflows/blog-deploy.yml` builds Hugo and deploys on push to
+  `blog/`) — `bitrot.me` is served directly by Cloudflare, not through the
+  tunnel to this node. The old `blog`/`blog-build` nginx setup was removed
+  from Ansible at the same time, but kept running live on `pi-03`
+  undetected until cleaned up 2026-08-06 (confirmed dead weight: no
+  playbook referenced it anymore, docs never updated to match).
 - Homepage is the internal dashboard; not exposed publicly. Its container
   image (`ghcr.io/gethomepage/homepage`) validates the Host header and
   rejects anything not in `HOMEPAGE_ALLOWED_HOSTS` — every hostname/IP it's
@@ -163,7 +182,6 @@ Pi 4. `/data` is NFS-mounted from `pi-nas`. Playbook: `pi-03-utility.yml`.
   running as root, which gets squashed to an anonymous UID with no access to
   the admin-owned (750) config dir. Pinned to `User=1000:1000` in the
   quadlet to match, same pattern as Uptime Kuma.
-- The blog apex (`bitrot.me`) is the only public hostname not behind Access.
 - **This node's NFS mount from pi-nas took kavita/homepage/blog down for over
   a month (2026-06-13 to 2026-07-27)** after a mass reboot where pi-nas
   wasn't up yet — the one-shot mount attempt failed and nothing ever
@@ -225,7 +243,7 @@ authentication does not depend on `pi-nas`. Playbooks: `pi-04-identity.yml`
   user directory it authenticates against (`ldap://lldap:3890` on the
   `identity-net` container network). LDAP base DN is `dc=bitrot,dc=me`.
 - `auth.bitrot.me` is public via the tunnel but **ungated** — it powers the
-  Cloudflare Access gate, so it cannot sit behind it (same exception as the blog).
+  Cloudflare Access gate, so it cannot sit behind it.
 - LLDAP's admin UI (`:17170`) is internal-only over Tailscale.
 - Identity DBs are SQLite; restic backs them up via consistent `.backup` dumps
   before each snapshot.
@@ -253,7 +271,7 @@ Configured in `templates/pi-fw/cloudflared-config.yml.j2`.
 
 | Hostname            | Backend                | Access gate |
 |---------------------|------------------------|-------------|
-| `bitrot.me`         | `pi-03:8090` (blog)    | none        |
+| `bitrot.me`         | **Not in this table** — served directly by Cloudflare Pages, not the tunnel/any Pi. See `blog/` in the repo root. | none |
 | `auth.bitrot.me`    | `pi-04:9091` (Authelia)| none (is the IdP) |
 | `cloud.bitrot.me`   | `pi-02:80`             | Access      |
 | `chat.bitrot.me`    | `pi-01:3000`           | Access      |
