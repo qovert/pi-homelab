@@ -3,7 +3,7 @@ Description=MongoDB for Rocket.Chat
 After=network-online.target local-fs.target
 
 [Container]
-Image=docker.io/library/mongo:7.0
+Image=docker.io/library/mongo:8.0
 ContainerName=rocketchat-mongo
 Volume={{ storage.data_dir }}/rocketchat/mongodb:/data/db
 Volume={{ storage.data_dir }}/rocketchat/mongo-init:/docker-entrypoint-initdb.d:ro
